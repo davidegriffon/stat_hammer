@@ -1,6 +1,7 @@
 defmodule FractionTest do
   use ExUnit.Case
-  doctest Fraction
+  alias StatHammer.Math.Fraction
+
 
   describe "new" do
     test "Expresses the fraction in terms of the lowest denominator" do

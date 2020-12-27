@@ -1,22 +1,24 @@
 defmodule HitRollTest do
   use ExUnit.Case
+  alias StatHammer.Math.Fraction
+  alias StatHammer.Phases.HitRoll
 
   describe "to hit" do
 
     test "valid input" do
-      assert HitRoll.to_hit(2) == Fraction.new(5, 6)
-      assert HitRoll.to_hit(3) == Fraction.new(4, 6)
+      assert HitRoll.probability_to_hit(2) == Fraction.new(5, 6)
+      assert HitRoll.probability_to_hit(3) == Fraction.new(4, 6)
     end
 
     test "wrong input" do
       assert_raise ArgumentError, fn ->
-        HitRoll.to_hit(1)
+        HitRoll.probability_to_hit(1)
       end
       assert_raise ArgumentError, fn ->
-        HitRoll.to_hit(7)
+        HitRoll.probability_to_hit(7)
       end
       assert_raise ArgumentError, fn ->
-        HitRoll.to_hit(2.1)
+        HitRoll.probability_to_hit(2.1)
       end
     end
 
@@ -95,8 +97,8 @@ defmodule HitRollTest do
     assert HitRoll.probabilty_to_hit_n_times(6, 7, 7) == Fraction.new(1, 279936)
   end
 
-  test "to_hit/2" do
-    assert HitRoll.to_hit(2, 3) == [
+  test "probability_to_hit/2" do
+    assert HitRoll.probability_to_hit(2, 3) == [
       {0, Fraction.new(1, 216)},
       {1, Fraction.new(15, 216)},
       {2, Fraction.new(75, 216)},

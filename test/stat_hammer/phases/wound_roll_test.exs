@@ -1,5 +1,7 @@
 defmodule WoundRollTest do
   use ExUnit.Case
+  alias StatHammer.Math.Fraction
+  alias StatHammer.Phases.WoundRoll
 
   test "to wound" do
     assert WoundRoll.to_wound(3, 3) == Fraction.new(1, 2)

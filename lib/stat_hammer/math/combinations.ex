@@ -1,4 +1,7 @@
-defmodule Combinations do
+defmodule StatHammer.Math.Combinations do
+  alias StatHammer.Math.Fraction
+  alias StatHammer.Math.Factorial
+
   def of(n, _r) when not is_integer(n), do: raise(ArithmeticError)
   def of(_n, r) when not is_integer(r), do: raise(ArithmeticError)
   def of(n, r) when n < r do
