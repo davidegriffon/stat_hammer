@@ -2,7 +2,7 @@ defmodule HitRollTest do
   use ExUnit.Case
   alias StatHammer.Math.Fraction
   alias StatHammer.Phases.HitRoll
-  alias StatHammer.Structs.HistogramValue
+  alias StatHammer.Structs.Bucket
 
   describe "to hit" do
 
@@ -117,10 +117,10 @@ defmodule HitRollTest do
 
   test "hit_histogram/2" do
     assert HitRoll.hit_histogram(2, 3) == [
-      HistogramValue.from_tuple({0, Fraction.new(1, 216)}),
-      HistogramValue.from_tuple({1, Fraction.new(15, 216)}),
-      HistogramValue.from_tuple({2, Fraction.new(75, 216)}),
-      HistogramValue.from_tuple({3, Fraction.new(125, 216)}),
+      Bucket.from_tuple({0, Fraction.new(1, 216)}),
+      Bucket.from_tuple({1, Fraction.new(15, 216)}),
+      Bucket.from_tuple({2, Fraction.new(75, 216)}),
+      Bucket.from_tuple({3, Fraction.new(125, 216)}),
     ]
   end
 

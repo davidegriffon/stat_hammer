@@ -1,7 +1,7 @@
 defmodule StatHammer.Phases.HitRoll do
   alias StatHammer.Math.Fraction
   alias StatHammer.Math.Combinations
-  alias StatHammer.Structs.HistogramValue
+  alias StatHammer.Structs.Bucket
   alias StatHammer.Structs.Simulation
 
   @spec probability_to_hit(non_neg_integer(), Fraction.t()) :: Fraction.t()
@@ -58,7 +58,7 @@ defmodule StatHammer.Phases.HitRoll do
     )
   end
 
-  @spec hit_histogram(non_neg_integer(), non_neg_integer(), Fraction.t()) :: list(HistogramValue.t())
+  @spec hit_histogram(non_neg_integer(), non_neg_integer(), Fraction.t()) :: list(Bucket.t())
   def hit_histogram(skill, number_of_dice, scenario_probability \\ Fraction.new(1))
   def hit_histogram(skill, _number_of_dice, _scenario_probability) when skill < 2 or skill > 6 do
     raise ArgumentError, message: "Skill must be in range 2...6"
@@ -69,41 +69,17 @@ defmodule StatHammer.Phases.HitRoll do
   def hit_histogram(skill, number_of_dice, scenario_probability) do
     Enum.map(
       0..number_of_dice,
-      fn x -> %HistogramValue{key: x, value: probabilty_to_hit_n_times(skill, number_of_dice, x, scenario_probability)} end
+      fn x -> %Bucket{
+        value: x,
+        probability: probabilty_to_hit_n_times(skill, number_of_dice, x, scenario_probability)
+      } end
     )
   end
 
-  def apply_reroll(hit_histogram, _number_of_dice, nil) do
-    hit_histogram
-  end
-  def apply_reroll(hit_histogram, _number_of_dice, :reroll_ones) do
-    # [{0, 1/2}, {1, 2/3}, ...]
-
-    hit_histogram
-  end
-  def apply_reroll(hit_histogram, _number_of_dice, :reroll_all) do
-    # TODO
-    hit_histogram
-  end
-
-  def apply_six_rolls(hit_histogram, _number_of_dice, nil) do
-    hit_histogram
-  end
-  def apply_six_rolls(hit_histogram, _number_of_dice, :on_six_two_hits) do
-    # TODO
-    hit_histogram
-  end
-  def apply_six_rolls(hit_histogram, _number_of_dice, :on_six_three_hits) do
-    # TODO
-    hit_histogram
-  end
-
-  @spec calculate(Simulation.t()) :: Simulation.t()
-  def calculate(simulation = %Simulation{}) do
+  @spec apply(Simulation.t()) :: Simulation.t()
+  def apply(simulation = %Simulation{}) do
     hit_histogram =
       hit_histogram(simulation.attack.skill, simulation.attack.number_of_dice)
-      |> apply_reroll(simulation.attack.number_of_dice, simulation.attack.hit_modifiers.reroll)
-      |> apply_six_rolls(simulation.attack.number_of_dice, simulation.attack.hit_modifiers.on_six)
     %Simulation{simulation | hit_histogram: hit_histogram}
   end
 end

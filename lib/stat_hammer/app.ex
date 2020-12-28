@@ -9,9 +9,10 @@ defmodule StatHammer.App do
   @spec calculate(Attack.t(), Defense.t()) :: Simulation.t()
   def calculate(attack = %Attack{}, defense = %Defense{}) do
     create_simulation(attack, defense)
-    |> HitRoll.calculate
-    |> WoundRoll.calculate
-    |> SavingRoll.calculate
+    |> HitRoll.apply()
+    |> Reroll.apply()
+    |> WoundRoll.calculate()
+    |> SavingRoll.calculate()
   end
 
   defp create_simulation(attack = %Attack{}, defense = %Defense{}) do
