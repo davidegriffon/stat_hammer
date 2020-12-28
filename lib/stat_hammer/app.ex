@@ -18,7 +18,7 @@ defmodule StatHammer.App do
     %Simulation{
       attack: attack,
       defense: defense,
-      hit_result: nil,
+      hit_histogram: nil,
       wound_result: nil,
       saving_result: nil,
     }

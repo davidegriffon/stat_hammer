@@ -2,8 +2,8 @@ defmodule StatHammer.Math.Fraction do
   alias StatHammer.Math.Fraction
 
   @type t :: %__MODULE__{
-    numerator: integer,
-    denominator: integer,
+    numerator: integer(),
+    denominator: integer(),
   }
   @enforce_keys [:numerator, :denominator]
   defstruct [:numerator, :denominator]
