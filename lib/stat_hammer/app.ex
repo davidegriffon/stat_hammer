@@ -15,13 +15,14 @@ defmodule StatHammer.App do
     |> SavingRoll.calculate()
   end
 
-  defp create_simulation(attack = %Attack{}, defense = %Defense{}) do
+  def create_simulation(attack = %Attack{}, defense = %Defense{}) do
     %Simulation{
       attack: attack,
       defense: defense,
       hit_histogram: nil,
       wound_result: nil,
       saving_result: nil,
+      meta: %{},
     }
   end
 end

@@ -20,8 +20,8 @@ end
 
 defmodule StatHammer.Structs.Attack.HitModifiers do
   @type t :: %__MODULE__{
-    reroll: atom(), # :reroll_ones, :reroll_all, :nil
-    on_six: atom(), # :on_six_two_hits, :on_six_three_hits, :nil
+    reroll: atom(), # :reroll_ones, :reroll_all, :reroll_none
+    on_six: atom(), # :on_six_two_hits, :on_six_three_hits, :on_six_none
   }
 
   defstruct [

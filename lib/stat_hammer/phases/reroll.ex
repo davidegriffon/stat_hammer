@@ -7,7 +7,7 @@ defmodule StatHammer.Phases.Reroll do
   alias StatHammer.Structs.BucketModifier
   alias StatHammer.Phases.HitRoll
 
-  def probabiliy_to_roll_one_given_a_miss(skill) do
+  defp probabiliy_to_roll_one_given_a_miss(skill) do
     Fraction.new(1, skill - 1)
   end
 
@@ -38,27 +38,43 @@ defmodule StatHammer.Phases.Reroll do
     )
   end
 
-  @spec get_list_of_second_chance(non_neg_integer(), non_neg_integer(), :reroll_all | :reroll_ones) :: list(SecondChance.t())
-  def get_list_of_second_chance(2, number_of_fails, :reroll_ones) do
+  @spec get_second_chances(non_neg_integer(), non_neg_integer(), :reroll_all | :reroll_ones | :reroll_none) :: list(SecondChance.t())
+  def get_second_chances(_skill, _number_of_fails, :reroll_none) do
+    []
+  end
+  def get_second_chances(_skill, 0, _type) do
+    []
+  end
+  def get_second_chances(2, number_of_fails, :reroll_ones) do
     [%SecondChance{number_of_dice: number_of_fails, probability: Fraction.new(1)}]
   end
-  def get_list_of_second_chance(_skill, number_of_fails, :reroll_all) do
+  def get_second_chances(_skill, number_of_fails, :reroll_all) do
     [%SecondChance{number_of_dice: number_of_fails, probability: Fraction.new(1)}]
   end
-  def get_list_of_second_chance(skill, number_of_fails, :reroll_ones) do
+  def get_second_chances(skill, number_of_fails, :reroll_ones) do
     # note: contains also 0 even if not necessary, this is useful for test because the sum of this list must be 1
-    Enum.map(
+    second_chances = Enum.map(
       0..number_of_fails, # see above
       fn number_of_ones -> %SecondChance{
         number_of_dice: number_of_ones,
         probability: probabiliy_to_roll_one_n_times(skill, number_of_fails, number_of_ones)
       } end
     )
+    second_chances
   end
 
   def chance_to_modifiers(second_chance = %SecondChance{}, skill, original_bucket) do
-    HitRoll.hit_histogram(skill, second_chance.number_of_dice, second_chance.probability)
+    HitRoll.hit_histogram(
+      skill,
+      second_chance.number_of_dice,
+      second_chance.probability
+    )
+    |> Enum.filter(
+      # we are not interested in bucket of 0 dice: it means no reroll
+      fn bucket -> bucket.value > 0 end
+    )
     |> Enum.map(
+      # transform list of %Bucket{} in a list of %BucketModifier
       fn bucket -> %BucketModifier{
         type: :add,
         bucket_value: bucket.value + original_bucket.value,
@@ -81,16 +97,16 @@ defmodule StatHammer.Phases.Reroll do
     |> List.flatten()
   end
 
-  def get_modifiers_of_bucket(bucket = %Bucket{}, simulation = %Simulation{}) do
+  def get_modifiers_from_bucket(bucket = %Bucket{}, simulation = %Simulation{}) do
     skill = simulation.attack.skill
     number_of_dice = simulation.attack.number_of_dice
     reroll_type = simulation.attack.hit_modifiers.reroll
     number_of_fails = number_of_dice - bucket.value
 
     add_modifiers =
-      get_list_of_second_chance(skill, number_of_fails, reroll_type)
+      get_second_chances(skill, number_of_fails, reroll_type)
       |> chances_to_modifiers(skill, bucket)
-      # multiply modifiers to bucket probability
+      # multiply modifiers to the probability of the source bucket
       |> Enum.map(
         fn bm -> %BucketModifier{
           bm | probability: Fraction.multiply(bm.probability, bucket.probability)
@@ -100,11 +116,11 @@ defmodule StatHammer.Phases.Reroll do
     cumulative_probability_of_add_modifiers =
       Enum.reduce(
         add_modifiers,
-        Fraction.new(1),
+        Fraction.new(0),
         fn bm, acc -> Fraction.add(bm.probability, acc) end
       )
 
-    # add subtraction modifier
+    # add subtraction modifier for the source bucket
     modifiers = [
       %BucketModifier{
         type: :subtraction,
@@ -121,25 +137,31 @@ defmodule StatHammer.Phases.Reroll do
   def get_modifiers(simulation = %Simulation{}) do
     modifiers =
       Enum.map(
-        simulation.hit_histogram,
-        fn bucket -> get_modifiers_of_bucket(bucket, simulation) end
+        simulation.hit_histogram,  # list of bucket
+        fn bucket -> get_modifiers_from_bucket(bucket, simulation) end
       )
       |> List.flatten()
-    meta = %{simulation.meta | hit_reroll_modifiers: modifiers}
+
+    meta = Map.put(simulation.meta, :hit_reroll_modifiers, modifiers)
     %Simulation{simulation | meta: meta}
   end
 
   @spec apply_modifiers(Simulation.t()) :: Simulation.t()
   def apply_modifiers(simulation = %Simulation{}) do
+    # normalize modifiers
     # TODO
     simulation
   end
 
   @spec apply(Simulation.t()) :: Simulation.t()
   def apply(simulation = %Simulation{}) do
-    simulation
-    |> get_modifiers()
-    |> apply_modifiers()
+    if simulation.attack.hit_modifiers.reroll == :reroll_none do
+      simulation
+    else
+      simulation
+      |> get_modifiers()
+      |> apply_modifiers()
+    end
   end
 
 end

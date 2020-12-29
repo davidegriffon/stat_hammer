@@ -56,6 +56,15 @@ defmodule HitRollTest do
     # one dice
     assert HitRoll.probabilty_to_hit_n_times(3, 1, 0) == Fraction.new(2, 6)
     assert HitRoll.probabilty_to_hit_n_times(3, 1, 1) == Fraction.new(4, 6)
+    # two dice
+    assert HitRoll.probabilty_to_hit_n_times(3, 2, 0) == Fraction.new(1, 9)
+    assert HitRoll.probabilty_to_hit_n_times(3, 2, 1) == Fraction.new(4, 9)
+    assert HitRoll.probabilty_to_hit_n_times(3, 2, 2) == Fraction.new(4, 9)
+    # three dice
+    assert HitRoll.probabilty_to_hit_n_times(3, 3, 0) == Fraction.new(1, 27)
+    assert HitRoll.probabilty_to_hit_n_times(3, 3, 1) == Fraction.new(6, 27)
+    assert HitRoll.probabilty_to_hit_n_times(3, 3, 2) == Fraction.new(12, 27)
+    assert HitRoll.probabilty_to_hit_n_times(3, 3, 3) == Fraction.new(8, 27)
     # four dice
     assert HitRoll.probabilty_to_hit_n_times(3, 4, 1) == Fraction.new(8, 81)
     assert HitRoll.probabilty_to_hit_n_times(3, 4, 2) == Fraction.new(24, 81)
