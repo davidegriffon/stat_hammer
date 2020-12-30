@@ -63,7 +63,7 @@ defmodule StatHammer.Phases.Reroll do
     second_chances
   end
 
-  def chance_to_modifiers(second_chance = %SecondChance{}, skill, original_bucket) do
+  def bucket_modifiers_of_second_chance(second_chance = %SecondChance{}, skill, original_bucket) do
     HitRoll.hit_histogram(
       skill,
       second_chance.number_of_dice,
@@ -88,31 +88,24 @@ defmodule StatHammer.Phases.Reroll do
     # get rid of SecondChance with number_of_dice equals to 0
     Enum.filter(
       chances,
-      fn chance -> chance.number_of_dice > 0 end
+      fn second_chance -> second_chance.number_of_dice > 0 end
     )
     # transform every chance to modifiers
     |> Enum.map(
-      fn chance -> chance_to_modifiers(chance, skill, original_bucket) end
+      fn second_chance ->
+        bucket_modifiers_of_second_chance(second_chance, skill, original_bucket)
+      end
     )
     |> List.flatten()
+    # multiply modifiers to the probability of the source bucket
+    |> Enum.map(
+      fn bm -> %BucketModifier{
+        bm | probability: Fraction.multiply(bm.probability, original_bucket.probability)
+      } end
+    )
   end
 
-  def get_modifiers_from_bucket(bucket = %Bucket{}, simulation = %Simulation{}) do
-    skill = simulation.attack.skill
-    number_of_dice = simulation.attack.number_of_dice
-    reroll_type = simulation.attack.hit_modifiers.reroll
-    number_of_fails = number_of_dice - bucket.value
-
-    add_modifiers =
-      get_second_chances(skill, number_of_fails, reroll_type)
-      |> chances_to_modifiers(skill, bucket)
-      # multiply modifiers to the probability of the source bucket
-      |> Enum.map(
-        fn bm -> %BucketModifier{
-          bm | probability: Fraction.multiply(bm.probability, bucket.probability)
-        } end
-      )
-
+  def append_subtracion_modifier(add_modifiers, bucket) do
     cumulative_probability_of_add_modifiers =
       Enum.reduce(
         add_modifiers,
@@ -120,34 +113,43 @@ defmodule StatHammer.Phases.Reroll do
         fn bm, acc -> Fraction.add(bm.probability, acc) end
       )
 
-    # add subtraction modifier for the source bucket
-    modifiers = [
+    # append subtraction modifier for the source bucket
+    [
       %BucketModifier{
         type: :subtraction,
         bucket_value: bucket.value,
         probability: cumulative_probability_of_add_modifiers
       } | add_modifiers
     ]
+  end
 
-    modifiers
+  def bucket_modifiers_of_bucket(bucket = %Bucket{}, simulation = %Simulation{}) do
+    skill = simulation.attack.skill
+    number_of_dice = simulation.attack.number_of_dice
+    reroll_type = simulation.attack.hit_modifiers.reroll
+    number_of_fails = number_of_dice - bucket.value
+
+    get_second_chances(skill, number_of_fails, reroll_type)
+    |> chances_to_modifiers(skill, bucket)
+    |> append_subtracion_modifier(bucket)
     |> List.flatten()
   end
 
-  @spec get_modifiers(Simulation.t()) :: Simulation.t()
-  def get_modifiers(simulation = %Simulation{}) do
-    modifiers =
+  @spec bucket_modifiers_of_simulation(Simulation.t()) :: Simulation.t()
+  def bucket_modifiers_of_simulation(simulation = %Simulation{}) do
+    bucket_modifiers_of_simulation =
       Enum.map(
         simulation.hit_histogram,  # list of bucket
-        fn bucket -> get_modifiers_from_bucket(bucket, simulation) end
+        fn bucket -> bucket_modifiers_of_bucket(bucket, simulation) end
       )
       |> List.flatten()
 
-    meta = Map.put(simulation.meta, :hit_reroll_modifiers, modifiers)
+    meta = Map.put(simulation.meta, :hit_reroll_modifiers, bucket_modifiers_of_simulation)
     %Simulation{simulation | meta: meta}
   end
 
-  @spec apply_modifiers(Simulation.t()) :: Simulation.t()
-  def apply_modifiers(simulation = %Simulation{}) do
+  @spec apply_bucket_modifiers_of_simulation(Simulation.t()) :: Simulation.t()
+  def apply_bucket_modifiers_of_simulation(simulation = %Simulation{}) do
     # normalize modifiers
     # TODO
     simulation
@@ -159,8 +161,8 @@ defmodule StatHammer.Phases.Reroll do
       simulation
     else
       simulation
-      |> get_modifiers()
-      |> apply_modifiers()
+      |> bucket_modifiers_of_simulation()
+      |> apply_bucket_modifiers_of_simulation()
     end
   end
 

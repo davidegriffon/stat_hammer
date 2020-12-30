@@ -94,6 +94,13 @@ defmodule ReRollTest do
           %SecondChance{number_of_dice: 1, probability: Fraction.new(1, 2)},
           %SecondChance{number_of_dice: 2, probability: Fraction.new(1, 4)},
         ]
+      assert Reroll.get_second_chances(3, 3, :reroll_ones) ==
+        [
+          %SecondChance{number_of_dice: 0, probability: Fraction.new(1, 8)},
+          %SecondChance{number_of_dice: 1, probability: Fraction.new(3, 8)},
+          %SecondChance{number_of_dice: 2, probability: Fraction.new(3, 8)},
+          %SecondChance{number_of_dice: 3, probability: Fraction.new(1, 8)},
+        ]
       assert Reroll.get_second_chances(4, 2, :reroll_ones) ==
         [
           %SecondChance{number_of_dice: 0, probability: Fraction.new(4, 9)},
@@ -111,20 +118,20 @@ defmodule ReRollTest do
 
   end
 
-  describe "chance_to_modifiers" do
+  describe "bucket_modifiers_of_second_chance" do
 
-    test "case 1" do
-      res = Reroll.chance_to_modifiers(
+    test "one die" do
+      result = Reroll.bucket_modifiers_of_second_chance(
         %SecondChance{number_of_dice: 1, probability: Fraction.new(1, 2)},
         3,
         %Bucket{value: 2, probability: Fraction.new(12, 27)}
       )
       expected = [%BucketModifier{bucket_value: 3, probability: Fraction.new(1, 3), type: :add}]
-      assert res == expected
+      assert result == expected
     end
 
-    test "case 2" do
-      res = Reroll.chance_to_modifiers(
+    test "two dice" do
+      result = Reroll.bucket_modifiers_of_second_chance(
         %SecondChance{number_of_dice: 2, probability: Fraction.new(1, 4)},
         3,
         %Bucket{value: 1, probability: Fraction.new(2, 9)}
@@ -133,7 +140,90 @@ defmodule ReRollTest do
         %BucketModifier{bucket_value: 2, probability: Fraction.new(1, 9), type: :add},
         %BucketModifier{bucket_value: 3, probability: Fraction.new(1, 9), type: :add},
       ]
-      assert res == expected
+      assert result == expected
+    end
+
+    test "three dice" do
+      result = Reroll.bucket_modifiers_of_second_chance(
+        %SecondChance{number_of_dice: 3, probability: Fraction.new(1, 8)},
+        3,
+        %Bucket{value: 0, probability: Fraction.new(1, 27)}
+      )
+      expected = [
+        %BucketModifier{bucket_value: 1, probability: Fraction.new(1, 36), type: :add},
+        %BucketModifier{bucket_value: 2, probability: Fraction.new(1, 18), type: :add},
+        %BucketModifier{bucket_value: 3, probability: Fraction.new(1, 27), type: :add},
+      ]
+      assert result == expected
+    end
+
+    test "many dice" do
+      result = Reroll.bucket_modifiers_of_second_chance(
+        %SecondChance{number_of_dice: 50, probability: Fraction.new(1)},
+        3,
+        %Bucket{value: 0, probability: Fraction.new(1)}
+      )
+      assert Fraction.pow(Fraction.new(2, 3), 50) == Enum.at(result, -1).probability
+    end
+
+  end
+
+  describe "bucket_modifiers_of_bucket" do
+
+    test "case 1" do
+      attack = %Attack{
+        number_of_dice: 3,
+        skill: 3,
+        strenght: 4,
+        armor_penetration: 0,
+        hit_modifiers: %HitModifiers{
+          reroll: :reroll_ones,
+          on_six: :on_six_none,
+        }
+      }
+      simulation = App.create_simulation(attack, %Defense{})
+      calculated_modifiers = Reroll.bucket_modifiers_of_bucket(
+        %Bucket{value: 0, probability: Fraction.new(1)},
+        simulation
+      )
+      expected_modifiers = [
+        %BucketModifier{
+          bucket_value: 0,
+          probability: %Fraction{denominator: 27, numerator: 19},
+          type: :subtraction
+        },
+        %BucketModifier{
+          bucket_value: 1,
+          probability: %Fraction{denominator: 4, numerator: 1},
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 1,
+          probability: %Fraction{denominator: 6, numerator: 1},
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 2,
+          probability: %Fraction{denominator: 6, numerator: 1},
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 1,
+          probability: %Fraction{denominator: 36, numerator: 1},
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 2,
+          probability: %Fraction{denominator: 18, numerator: 1},
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 3,
+          probability: %Fraction{denominator: 27, numerator: 1},
+          type: :add
+        }
+      ]
+      assert expected_modifiers == calculated_modifiers
     end
 
   end
