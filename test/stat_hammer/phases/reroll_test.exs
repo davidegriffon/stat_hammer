@@ -228,12 +228,12 @@ defmodule ReRollTest do
 
   end
 
-  describe "nah" do
+  describe "bucket_modifiers_of_simulation" do
 
-    test "foo" do
+    test "case 1" do
       attack = %Attack{
-        number_of_dice: 2,
-        skill: 4,
+        number_of_dice: 3,
+        skill: 3,
         strenght: 4,
         armor_penetration: 0,
         hit_modifiers: %HitModifiers{
@@ -244,8 +244,181 @@ defmodule ReRollTest do
       simulation =
         App.create_simulation(attack, %Defense{})
         |> HitRoll.apply()
-        |> Reroll.apply()
-      #IO.warn "::: #{inspect(simulation)}"
+
+      simulation = Reroll.bucket_modifiers_of_simulation(simulation)
+      calculated_modifiers = simulation.meta.hit_reroll_modifiers
+
+      bucket_0_probability = Fraction.new(1, 27)
+      bucket_1_probability = Fraction.new(6, 27)
+      bucket_2_probability = Fraction.new(12, 27)
+      expected_modifiers = [
+        # bucket 0
+        %BucketModifier{
+          bucket_value: 0,
+          probability: Fraction.multiply(Fraction.new(19, 27), bucket_0_probability),
+          type: :subtraction
+        },
+        %BucketModifier{
+          bucket_value: 1,
+          probability: Fraction.multiply(Fraction.new(1, 4), bucket_0_probability),
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 1,
+          probability: Fraction.multiply(Fraction.new(1, 6), bucket_0_probability),
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 2,
+          probability: Fraction.multiply(Fraction.new(1, 6), bucket_0_probability),
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 1,
+          probability: Fraction.multiply(Fraction.new(1, 36), bucket_0_probability),
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 2,
+          probability: Fraction.multiply(Fraction.new(1, 18), bucket_0_probability),
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 3,
+          probability: Fraction.multiply(Fraction.new(1, 27), bucket_0_probability),
+          type: :add
+        },
+        # bucket 1
+        %BucketModifier{
+          bucket_value: 1,
+          probability: Fraction.multiply(Fraction.new(5, 9), bucket_1_probability),
+          type: :subtraction
+        },
+        %BucketModifier{
+          bucket_value: 2,
+          probability: Fraction.multiply(Fraction.new(1, 3), bucket_1_probability),
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 2,
+          probability: Fraction.multiply(Fraction.new(1, 9), bucket_1_probability),
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 3,
+          probability: Fraction.multiply(Fraction.new(1, 9), bucket_1_probability),
+          type: :add
+        },
+        # bucket 2
+        %BucketModifier{
+          bucket_value: 2,
+          probability: Fraction.multiply(Fraction.new(1, 3), bucket_2_probability),
+          type: :subtraction
+        },
+        %BucketModifier{
+          bucket_value: 3,
+          probability: Fraction.multiply(Fraction.new(1, 3), bucket_2_probability),
+          type: :add
+        },
+      ]
+
+      assert expected_modifiers == calculated_modifiers
+
+      # check that the sum is zero
+      sum =
+        Enum.reduce(
+          calculated_modifiers,
+          Fraction.new(0),
+          fn modifier, acc ->
+            case modifier.type do
+              :add -> Fraction.add(acc, modifier.probability)
+              :subtraction -> Fraction.subtraction(acc, modifier.probability)
+            end
+          end
+        )
+      assert sum == Fraction.new(0)
+    end
+
+  end
+
+  describe "apply_modifier_to_bucket" do
+
+    test "Same bucket value" do
+      calculated =
+        Reroll.apply_modifier_to_bucket(
+          %Bucket{
+            value: 2,
+            probability: %Fraction{denominator: 3, numerator: 1},
+          },
+          %BucketModifier{
+            bucket_value: 2,
+            probability: %Fraction{denominator: 9, numerator: 1},
+            type: :add
+          }
+        )
+      expected_result =
+        %Bucket{
+          value: 2,
+          probability: %Fraction{denominator: 9, numerator: 4},
+        }
+      assert expected_result == calculated
+    end
+
+    test "Different bucket value" do
+      bucket =
+        %Bucket{
+          value: 2,
+          probability: %Fraction{denominator: 144, numerator: 3},
+        }
+      calculated =
+        Reroll.apply_modifier_to_bucket(
+          bucket,
+          %BucketModifier{
+            bucket_value: 3,
+            probability: %Fraction{denominator: 9, numerator: 1},
+            type: :add
+          }
+        )
+      # bucket does not change
+      assert bucket == calculated
+    end
+
+  end
+
+  describe "apply_modifiers_to_bucket" do
+
+    test "Case 1" do
+      modifiers = [
+        %BucketModifier{
+          bucket_value: 1,
+          probability: Fraction.new(1, 9),
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 2,
+          probability: Fraction.new(5, 7),
+          type: :add
+        },
+        %BucketModifier{
+          bucket_value: 1,
+          probability: Fraction.new(6, 9),
+          type: :add
+        }
+      ]
+      calculated =
+        Reroll.apply_modifiers_to_bucket(
+          %Bucket{
+            value: 1,
+            probability: Fraction.new(1, 9),
+          },
+          modifiers
+        )
+      expected_result =
+        %Bucket{
+          value: 1,
+          probability: Fraction.new(8, 9),
+        }
+      assert expected_result == calculated
     end
 
   end

@@ -15,10 +15,14 @@ defmodule StatHammer.Phases.Reroll do
   Calcutate the probability to roll `number_of_ones` ones rolling `number_of_fails` dice.
   Note that dice in this context are all misses, so the probability to get a `one` depends on skill.
   """
-  def probabiliy_to_roll_one_n_times(_skill, number_of_fails, number_of_ones) when number_of_fails < number_of_ones do
+  def probabiliy_to_roll_one_n_times(
+    _skill, number_of_fails, number_of_ones
+  ) when number_of_fails < number_of_ones do
     raise ArgumentError, message: "number_of_fails >= number_of_ones"
   end
-  def probabiliy_to_roll_one_n_times(skill, number_of_fails, number_of_ones) when number_of_fails == number_of_ones do
+  def probabiliy_to_roll_one_n_times(
+    skill, number_of_fails, number_of_ones
+  ) when number_of_fails == number_of_ones do
     Fraction.pow(probabiliy_to_roll_one_given_a_miss(skill), number_of_fails)
   end
   def probabiliy_to_roll_one_n_times(skill, number_of_fails, 0) do
@@ -63,7 +67,9 @@ defmodule StatHammer.Phases.Reroll do
     second_chances
   end
 
-  def bucket_modifiers_of_second_chance(second_chance = %SecondChance{}, skill, original_bucket) do
+  def bucket_modifiers_of_second_chance(
+    second_chance = %SecondChance{}, skill, original_bucket
+  ) do
     HitRoll.hit_histogram(
       skill,
       second_chance.number_of_dice,
@@ -105,6 +111,9 @@ defmodule StatHammer.Phases.Reroll do
     )
   end
 
+  def append_subtracion_modifier([], _bucket) do
+    []
+  end
   def append_subtracion_modifier(add_modifiers, bucket) do
     cumulative_probability_of_add_modifiers =
       Enum.reduce(
@@ -123,7 +132,10 @@ defmodule StatHammer.Phases.Reroll do
     ]
   end
 
-  def bucket_modifiers_of_bucket(bucket = %Bucket{}, simulation = %Simulation{}) do
+  def bucket_modifiers_of_bucket(
+    bucket = %Bucket{},
+    simulation = %Simulation{}
+  ) do
     skill = simulation.attack.skill
     number_of_dice = simulation.attack.number_of_dice
     reroll_type = simulation.attack.hit_modifiers.reroll
@@ -148,11 +160,46 @@ defmodule StatHammer.Phases.Reroll do
     %Simulation{simulation | meta: meta}
   end
 
-  @spec apply_bucket_modifiers_of_simulation(Simulation.t()) :: Simulation.t()
-  def apply_bucket_modifiers_of_simulation(simulation = %Simulation{}) do
-    # normalize modifiers
-    # TODO
-    simulation
+  def apply_modifier_to_bucket(
+    bucket = %Bucket{value: bucket_value},
+    bucket_modifier = %BucketModifier{bucket_value: bucket_value}
+  ) do
+    new_probability =
+      case bucket_modifier.type do
+        :add -> Fraction.add(bucket.probability, bucket_modifier.probability)
+        :subtraction -> Fraction.subtraction(bucket.probability, bucket_modifier.probability)
+      end
+    %Bucket{
+      value: bucket_value,
+      probability: new_probability
+    }
+  end
+  def apply_modifier_to_bucket(
+    bucket = %Bucket{},
+    _bucket_modifier = %BucketModifier{}
+  ) do
+    bucket
+  end
+
+  def apply_modifiers_to_bucket(
+    bucket = %Bucket{}, bucket_modifiers
+  ) do
+    Enum.reduce(
+      bucket_modifiers,
+      bucket,
+      fn modifier, bucket -> apply_modifier_to_bucket(bucket, modifier) end
+    )
+  end
+
+  @spec apply_bucket_modifiers_to_simulation(Simulation.t()) :: Simulation.t()
+  def apply_bucket_modifiers_to_simulation(simulation = %Simulation{}) do
+    modifiers = simulation.meta.hit_reroll_modifiers
+    hit_histogram =
+      Enum.map(
+        simulation.hit_histogram,
+        fn bucket -> apply_modifiers_to_bucket(bucket, modifiers) end
+      )
+    %Simulation{simulation | hit_histogram: hit_histogram}
   end
 
   @spec apply(Simulation.t()) :: Simulation.t()
@@ -162,7 +209,7 @@ defmodule StatHammer.Phases.Reroll do
     else
       simulation
       |> bucket_modifiers_of_simulation()
-      |> apply_bucket_modifiers_of_simulation()
+      |> apply_bucket_modifiers_to_simulation()
     end
   end
 
