@@ -70,4 +70,12 @@ defmodule StatHammer.Math.Fraction do
       fn lhs, rhs -> multiply(lhs, rhs) end
     )
   end
+
+  @doc """
+  The given function should compare two fractions,
+  and return true if the first argument precedes or is in the same place as the second one.
+  """
+  def compare(a = %Fraction{}, b = %Fraction{}) do
+    Fraction.subtraction(a, b).numerator < 0
+  end
 end

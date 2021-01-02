@@ -3,6 +3,7 @@ defmodule ReRollTest do
   alias StatHammer.Math.Fraction
   alias StatHammer.Phases.HitRoll
   alias StatHammer.Phases.Reroll
+  alias StatHammer.Phases.WoundRoll
   alias StatHammer.Structs.Defense
   alias StatHammer.Structs.Attack
   alias StatHammer.Structs.Attack.HitModifiers
@@ -67,7 +68,7 @@ defmodule ReRollTest do
     assert sum_of_probabilities == Fraction.new(1)
   end
 
-  describe "get_second_chances" do
+  describe "second_chances" do
     # note that the most important logic of this function is in the
     # `probabiliy_to_roll_one_n_times` funciont, that is already tested above
 
@@ -76,32 +77,32 @@ defmodule ReRollTest do
       Enum.each(
         combinations,
         fn {skill, number_of_fails} ->
-          Reroll.get_second_chances(skill, number_of_fails, :reroll_ones)
+          Reroll.second_chances(skill, number_of_fails, :reroll_ones)
           |> check_sum_of_probabilities_of_second_chances()
         end
       )
     end
 
     test "reroll_ones type" do
-      assert Reroll.get_second_chances(3, 1, :reroll_ones) ==
+      assert Reroll.second_chances(3, 1, :reroll_ones) ==
         [
           %SecondChance{number_of_dice: 0, probability: Fraction.new(1, 2)},
           %SecondChance{number_of_dice: 1, probability: Fraction.new(1, 2)},
         ]
-      assert Reroll.get_second_chances(3, 2, :reroll_ones) ==
+      assert Reroll.second_chances(3, 2, :reroll_ones) ==
         [
           %SecondChance{number_of_dice: 0, probability: Fraction.new(1, 4)},
           %SecondChance{number_of_dice: 1, probability: Fraction.new(1, 2)},
           %SecondChance{number_of_dice: 2, probability: Fraction.new(1, 4)},
         ]
-      assert Reroll.get_second_chances(3, 3, :reroll_ones) ==
+      assert Reroll.second_chances(3, 3, :reroll_ones) ==
         [
           %SecondChance{number_of_dice: 0, probability: Fraction.new(1, 8)},
           %SecondChance{number_of_dice: 1, probability: Fraction.new(3, 8)},
           %SecondChance{number_of_dice: 2, probability: Fraction.new(3, 8)},
           %SecondChance{number_of_dice: 3, probability: Fraction.new(1, 8)},
         ]
-      assert Reroll.get_second_chances(4, 2, :reroll_ones) ==
+      assert Reroll.second_chances(4, 2, :reroll_ones) ==
         [
           %SecondChance{number_of_dice: 0, probability: Fraction.new(4, 9)},
           %SecondChance{number_of_dice: 1, probability: Fraction.new(4, 9)},
@@ -110,31 +111,33 @@ defmodule ReRollTest do
     end
 
     test "reroll_all type" do
-      assert Reroll.get_second_chances(3, 3, :reroll_all) == [%SecondChance{number_of_dice: 3, probability: Fraction.new(1)}]
-      assert Reroll.get_second_chances(4, 6, :reroll_all) == [%SecondChance{number_of_dice: 6, probability: Fraction.new(1)}]
-      assert Reroll.get_second_chances(5, 9, :reroll_all) == [%SecondChance{number_of_dice: 9, probability: Fraction.new(1)}]
-      assert Reroll.get_second_chances(6, 2, :reroll_all) == [%SecondChance{number_of_dice: 2, probability: Fraction.new(1)}]
+      assert Reroll.second_chances(3, 3, :reroll_all) == [%SecondChance{number_of_dice: 3, probability: Fraction.new(1)}]
+      assert Reroll.second_chances(4, 6, :reroll_all) == [%SecondChance{number_of_dice: 6, probability: Fraction.new(1)}]
+      assert Reroll.second_chances(5, 9, :reroll_all) == [%SecondChance{number_of_dice: 9, probability: Fraction.new(1)}]
+      assert Reroll.second_chances(6, 2, :reroll_all) == [%SecondChance{number_of_dice: 2, probability: Fraction.new(1)}]
     end
 
   end
 
-  describe "bucket_modifiers_of_second_chance" do
+  describe "modifiers_of_second_chance" do
 
     test "one die" do
-      result = Reroll.bucket_modifiers_of_second_chance(
+      result = Reroll.modifiers_of_second_chance(
         %SecondChance{number_of_dice: 1, probability: Fraction.new(1, 2)},
         3,
-        %Bucket{value: 2, probability: Fraction.new(12, 27)}
+        %Bucket{value: 2, probability: Fraction.new(12, 27)},
+        :hit_phase
       )
       expected = [%BucketModifier{bucket_value: 3, probability: Fraction.new(1, 3), type: :add}]
       assert result == expected
     end
 
     test "two dice" do
-      result = Reroll.bucket_modifiers_of_second_chance(
+      result = Reroll.modifiers_of_second_chance(
         %SecondChance{number_of_dice: 2, probability: Fraction.new(1, 4)},
         3,
-        %Bucket{value: 1, probability: Fraction.new(2, 9)}
+        %Bucket{value: 1, probability: Fraction.new(2, 9)},
+        :hit_phase
       )
       expected = [
         %BucketModifier{bucket_value: 2, probability: Fraction.new(1, 9), type: :add},
@@ -144,10 +147,11 @@ defmodule ReRollTest do
     end
 
     test "three dice" do
-      result = Reroll.bucket_modifiers_of_second_chance(
+      result = Reroll.modifiers_of_second_chance(
         %SecondChance{number_of_dice: 3, probability: Fraction.new(1, 8)},
         3,
-        %Bucket{value: 0, probability: Fraction.new(1, 27)}
+        %Bucket{value: 0, probability: Fraction.new(1, 27)},
+        :hit_phase
       )
       expected = [
         %BucketModifier{bucket_value: 1, probability: Fraction.new(1, 36), type: :add},
@@ -158,17 +162,18 @@ defmodule ReRollTest do
     end
 
     test "many dice" do
-      result = Reroll.bucket_modifiers_of_second_chance(
+      result = Reroll.modifiers_of_second_chance(
         %SecondChance{number_of_dice: 50, probability: Fraction.new(1)},
         3,
-        %Bucket{value: 0, probability: Fraction.new(1)}
+        %Bucket{value: 0, probability: Fraction.new(1)},
+        :hit_phase
       )
       assert Fraction.pow(Fraction.new(2, 3), 50) == Enum.at(result, -1).probability
     end
 
   end
 
-  describe "bucket_modifiers_of_bucket" do
+  describe "modifiers_of_bucket" do
 
     test "case 1" do
       attack = %Attack{
@@ -182,7 +187,7 @@ defmodule ReRollTest do
         }
       }
       simulation = App.create_simulation(attack, %Defense{})
-      calculated_modifiers = Reroll.bucket_modifiers_of_bucket(
+      calculated_modifiers = Reroll.modifiers_of_bucket(
         %Bucket{value: 0, probability: Fraction.new(1)},
         simulation
       )
@@ -228,7 +233,7 @@ defmodule ReRollTest do
 
   end
 
-  describe "bucket_modifiers_of_simulation" do
+  describe "modifiers_of_simulation" do
 
     test "case 1" do
       attack = %Attack{
@@ -245,7 +250,7 @@ defmodule ReRollTest do
         App.create_simulation(attack, %Defense{})
         |> HitRoll.apply()
 
-      simulation = Reroll.bucket_modifiers_of_simulation(simulation)
+      simulation = Reroll.modifiers_of_simulation(simulation)
       calculated_modifiers = simulation.meta.hit_reroll_modifiers
 
       bucket_0_probability = Fraction.new(1, 27)
@@ -421,6 +426,60 @@ defmodule ReRollTest do
       assert expected_result == calculated
     end
 
+  end
+
+  describe "Foo" do
+    test "Bar" do
+      attack = %Attack{
+        number_of_dice: 10,
+        skill: 3,
+        strenght: 4,
+        armor_penetration: 0,
+        hit_modifiers: %HitModifiers{
+          reroll: :reroll_ones,
+          on_six: :on_six_none,
+        }
+      }
+      defense = %Defense{
+        resistance: 3
+      }
+      simulation =
+        App.create_simulation(attack, defense)
+        |> HitRoll.apply()
+        |> Reroll.apply()
+      #IO.inspect(simulation.result)
+
+      simulation = WoundRoll.apply(simulation)
+      #IO.inspect(simulation.result)
+
+      sum =
+        Enum.reduce(
+          simulation.result.histogram,
+          Fraction.new(0),
+          fn bucket, acc ->
+            Fraction.add(acc, bucket.probability)
+          end
+        )
+      #IO.puts("\n\n::>> #{inspect(sum)}")
+
+      cumulated =
+        Enum.with_index(simulation.result.histogram)
+        |> Enum.map(
+          fn {_bucket, index} ->
+            prob =
+              Enum.reduce(
+                Enum.take(simulation.result.histogram, - index - 1),
+                Fraction.new(0),
+                fn bucket, acc ->
+                  Fraction.add(bucket.probability, acc)
+                end
+              )
+            "#{10 - index}: #{(prob.numerator / prob.denominator) * 100} %"
+          end
+        )
+        #IO.puts("\n\ncumulated:")
+        #IO.inspect(cumulated)
+    end
   end
 
 end

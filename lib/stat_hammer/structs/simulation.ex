@@ -1,23 +1,19 @@
 defmodule StatHammer.Structs.Simulation do
   alias StatHammer.Structs.Attack
   alias StatHammer.Structs.Defense
-  alias StatHammer.Structs.Bucket
+  alias StatHammer.Structs.SimulationResult
 
   @type t :: %__MODULE__{
     attack: Attack.t(),
     defense: Defense.t(),
-    hit_histogram: list(Bucket.t()),
-    wound_result: list(),
-    saving_result: list(),
+    result: SimulationResult.t(),
     meta: struct(),
   }
 
   defstruct [
     :attack,
     :defense,
-    :hit_histogram,
-    :wound_result,
-    :saving_result,
+    :result,
     :meta,
   ]
 end
