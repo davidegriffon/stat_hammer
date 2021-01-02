@@ -1,6 +1,6 @@
 defmodule StatHammer.Phases.HitRoll do
   alias StatHammer.Math.Fraction
-  alias StatHammer.Math.Combinations
+  alias StatHammer.Math.Probability
   alias StatHammer.Structs.Bucket
   alias StatHammer.Structs.Simulation
   alias StatHammer.Structs.SimulationResult
@@ -20,44 +20,6 @@ defmodule StatHammer.Phases.HitRoll do
     )
   end
 
-  @spec probability_to_miss(non_neg_integer(), Fraction.t()) :: Fraction.t()
-  def probability_to_miss(skill, scenario_probability \\ Fraction.new(1)) do
-    Fraction.subtraction(
-      Fraction.new(1),
-      probability_to_hit(skill, scenario_probability)
-    )
-  end
-
-  @spec probabilty_to_hit_n_times(non_neg_integer(), non_neg_integer(), non_neg_integer(), Fraction.t()) :: Fraction.t()
-  def probabilty_to_hit_n_times(
-    skill, number_of_dice, number_of_successes, scenario_probability
-  ) do
-    Fraction.multiply(
-      probabilty_to_hit_n_times(skill, number_of_dice, number_of_successes),
-      scenario_probability
-    )
-  end
-
-  @spec probabilty_to_hit_n_times(non_neg_integer(), non_neg_integer(), non_neg_integer()) :: Fraction.t()
-  def probabilty_to_hit_n_times(_skill, number_of_dice, number_of_successes) when number_of_dice < number_of_successes do
-    raise ArgumentError, message: "number_of_dice >= number_of_successes"
-  end
-  def probabilty_to_hit_n_times(skill, number_of_dice, number_of_successes) when number_of_dice == number_of_successes do
-    Fraction.pow(probability_to_hit(skill), number_of_dice)
-  end
-  def probabilty_to_hit_n_times(skill, number_of_dice, 0) do
-    Fraction.pow(probability_to_miss(skill), number_of_dice)
-  end
-  def probabilty_to_hit_n_times(skill, number_of_dice, number_of_successes) do
-    hit = Fraction.pow(probability_to_hit(skill), number_of_successes)
-    miss = Fraction.pow(probability_to_miss(skill), number_of_dice - number_of_successes)
-    single_possible_world = Fraction.multiply(hit, miss)
-    Fraction.multiply(
-      single_possible_world,
-      Combinations.of(number_of_dice, number_of_successes)
-    )
-  end
-
   @spec histogram(non_neg_integer(), non_neg_integer(), Fraction.t()) :: list(Bucket.t())
   def histogram(skill, number_of_dice, scenario_probability \\ Fraction.new(1))
   def histogram(skill, _number_of_dice, _scenario_probability) when skill < 2 or skill > 6 do
@@ -72,7 +34,10 @@ defmodule StatHammer.Phases.HitRoll do
       fn x ->
         %Bucket{
           value: x,
-          probability: probabilty_to_hit_n_times(skill, number_of_dice, x, scenario_probability)
+          probability:
+            Probability.probabilty_to_success_n_times(
+              probability_to_hit(skill), number_of_dice, x, scenario_probability
+            )
         }
       end
     )
@@ -80,11 +45,17 @@ defmodule StatHammer.Phases.HitRoll do
 
   @spec apply(Simulation.t()) :: Simulation.t()
   def apply(simulation = %Simulation{}) do
+    calculated_histogram =
+      histogram(simulation.attack.skill, simulation.attack.number_of_dice)
     result =
       %SimulationResult{
-        histogram: histogram(simulation.attack.skill, simulation.attack.number_of_dice),
+        histogram: calculated_histogram,
         previous_phase: :hit_phase
       }
-    %Simulation{simulation | result: result}
+    meta = Map.put(
+      simulation.meta,
+      :hit_phase_histogram, calculated_histogram
+    )
+    %Simulation{simulation | result: result, meta: meta}
   end
 end

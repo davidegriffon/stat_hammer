@@ -1,6 +1,6 @@
 defmodule StatHammer.Phases.WoundRoll do
   alias StatHammer.Math.Fraction
-  alias StatHammer.Math.Combinations
+  alias StatHammer.Math.Probability
   alias StatHammer.Structs.Bucket
   alias StatHammer.Structs.Simulation
   alias StatHammer.Structs.SimulationResult
@@ -22,75 +22,17 @@ defmodule StatHammer.Phases.WoundRoll do
     Fraction.new(2, 6)
   end
 
-  def probability_not_to_wound(
-    strenght, resistance, scenario_probability \\ Fraction.new(1)
-  ) do
-    Fraction.subtraction(
-      Fraction.new(1),
-      probability_to_wound(strenght, resistance, scenario_probability)
-    )
-  end
-
-  def probability_to_wound(strenght, resistance, scenario_probability) do
-    Fraction.multiply(
-      probability_to_wound(strenght, resistance),
-      scenario_probability
-    )
-  end
-
-  @spec probabilty_to_wound_n_times(
-    non_neg_integer(), non_neg_integer(), non_neg_integer(), non_neg_integer()
-  ) :: Fraction.t()
-  def probabilty_to_wound_n_times(
-    _strenght, _resistance, number_of_dice, number_of_successes
-  ) when number_of_dice < number_of_successes do
-    raise ArgumentError, message: "number_of_dice >= number_of_successes"
-  end
-  def probabilty_to_wound_n_times(
-    strenght, resistance, number_of_dice, number_of_successes
-  ) when number_of_dice == number_of_successes do
-    Fraction.pow(probability_to_wound(strenght, resistance), number_of_dice)
-  end
-  def probabilty_to_wound_n_times(
-    strenght, resistance, number_of_dice, 0
-  ) do
-    Fraction.pow(probability_not_to_wound(strenght, resistance), number_of_dice)
-  end
-  def probabilty_to_wound_n_times(
-    strenght, resistance, number_of_dice, number_of_successes
-  ) do
-    wound = Fraction.pow(
-      probability_to_wound(strenght, resistance), number_of_successes
-    )
-    not_wound = Fraction.pow(
-      probability_not_to_wound(strenght, resistance),
-      number_of_dice - number_of_successes
-    )
-    single_possible_world = Fraction.multiply(wound, not_wound)
-    Fraction.multiply(
-      single_possible_world,
-      Combinations.of(number_of_dice, number_of_successes)
-    )
-  end
-
-  def probabilty_to_wound_n_times(
-    strenght, resistance, number_of_dice, number_of_successes, scenario_probability
-  ) do
-    Fraction.multiply(
-      probabilty_to_wound_n_times(strenght, resistance, number_of_dice, number_of_successes),
-      scenario_probability
-    )
-  end
-
   def sub_histogram_of_bucket(bucket = %Bucket{}, strenght, resistance) do
+    probability = probability_to_wound(strenght, resistance)
     Enum.map(
       0..bucket.value,
       fn number_of_successes ->
         %Bucket{
           value: number_of_successes,
-          probability: probabilty_to_wound_n_times(
-            strenght, resistance, bucket.value, number_of_successes, bucket.probability
-          )
+          probability:
+            Probability.probabilty_to_success_n_times(
+              probability, bucket.value, number_of_successes, bucket.probability
+            )
         }
       end
     )
@@ -133,13 +75,15 @@ defmodule StatHammer.Phases.WoundRoll do
 
   @spec apply(Simulation.t()) :: Simulation.t()
   def apply(simulation = %Simulation{}) do
+    updated_histogram =
+      histogram(
+        simulation.result.histogram,
+        simulation.attack.strenght,
+        simulation.defense.resistance
+      )
     result =
       %SimulationResult{
-        histogram: histogram(
-          simulation.result.histogram,
-          simulation.attack.strenght,
-          simulation.defense.resistance
-        ),
+        histogram: updated_histogram,
         previous_phase: :wound_phase
       }
     %Simulation{simulation | result: result}

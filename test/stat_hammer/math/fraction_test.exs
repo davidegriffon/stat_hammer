@@ -2,7 +2,6 @@ defmodule FractionTest do
   use ExUnit.Case
   alias StatHammer.Math.Fraction
 
-
   describe "new" do
     test "Expresses the fraction in terms of the lowest denominator" do
       assert Fraction.new(4, 2) == %Fraction{numerator: 2, denominator: 1}

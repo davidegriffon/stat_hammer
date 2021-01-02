@@ -12,52 +12,6 @@ defmodule ReRollTest do
   alias StatHammer.Structs.SecondChance
   alias StatHammer.App
 
-  describe "probabiliy_to_roll_one_n_times" do
-
-    test "skill 2+" do
-      assert Reroll.probabiliy_to_roll_one_n_times(2, 1, 1) == Fraction.new(1)
-      assert Reroll.probabiliy_to_roll_one_n_times(2, 2, 2) == Fraction.new(1)
-      assert Reroll.probabiliy_to_roll_one_n_times(2, 10, 10) == Fraction.new(1)
-      assert Reroll.probabiliy_to_roll_one_n_times(2, 2, 1) == Fraction.new(0)
-      assert Reroll.probabiliy_to_roll_one_n_times(2, 1, 0) == Fraction.new(0)
-      assert Reroll.probabiliy_to_roll_one_n_times(2, 2, 0) == Fraction.new(0)
-      assert Reroll.probabiliy_to_roll_one_n_times(2, 10, 0) == Fraction.new(0)
-    end
-
-    test "skill 3+" do
-      assert Reroll.probabiliy_to_roll_one_n_times(3, 1, 0) == Fraction.new(1, 2)
-      assert Reroll.probabiliy_to_roll_one_n_times(3, 1, 1) == Fraction.new(1, 2)
-      assert Reroll.probabiliy_to_roll_one_n_times(3, 2, 2) == Fraction.new(1, 4)
-      assert Reroll.probabiliy_to_roll_one_n_times(3, 3, 1) == Fraction.new(3, 8)
-    end
-
-    test "skill 4+" do
-      assert Reroll.probabiliy_to_roll_one_n_times(4, 1, 0) == Fraction.new(2, 3)
-      assert Reroll.probabiliy_to_roll_one_n_times(4, 1, 1) == Fraction.new(1, 3)
-      assert Reroll.probabiliy_to_roll_one_n_times(4, 2, 2) == Fraction.new(1, 9)
-      assert Reroll.probabiliy_to_roll_one_n_times(4, 3, 1) == Fraction.new(4, 9)
-    end
-
-    test "skill 5+" do
-      assert Reroll.probabiliy_to_roll_one_n_times(5, 1, 0) == Fraction.new(3, 4)
-      assert Reroll.probabiliy_to_roll_one_n_times(5, 1, 1) == Fraction.new(1, 4)
-      assert Reroll.probabiliy_to_roll_one_n_times(5, 2, 2) == Fraction.new(1, 16)
-      assert Reroll.probabiliy_to_roll_one_n_times(5, 3, 2) == Fraction.new(9, 64)
-    end
-
-    test "skill 6+" do
-      assert Reroll.probabiliy_to_roll_one_n_times(6, 1, 0) == Fraction.new(4, 5)
-      assert Reroll.probabiliy_to_roll_one_n_times(6, 1, 1) == Fraction.new(1, 5)
-      assert Reroll.probabiliy_to_roll_one_n_times(6, 2, 2) == Fraction.new(1, 25)
-      assert Reroll.probabiliy_to_roll_one_n_times(6, 4, 0) == Fraction.new(256, 625)
-      assert Reroll.probabiliy_to_roll_one_n_times(6, 4, 1) == Fraction.new(256, 625)
-      assert Reroll.probabiliy_to_roll_one_n_times(6, 4, 2) == Fraction.new(96, 625)
-      assert Reroll.probabiliy_to_roll_one_n_times(6, 4, 3) == Fraction.new(16, 625)
-      assert Reroll.probabiliy_to_roll_one_n_times(6, 4, 4) == Fraction.new(1, 625)
-    end
-
-  end
-
   defp check_sum_of_probabilities_of_second_chances(second_chances) do
     sum_of_probabilities =
       Enum.reduce(

@@ -17,27 +17,6 @@ defmodule WoundRollTest do
 
   end
 
-  describe "probabilty_to_wound_n_times" do
-
-    test "strenght 4 and resistance 3" do
-      # one dice
-      assert WoundRoll.probabilty_to_wound_n_times(4, 3, 1, 1) == Fraction.new(2, 3)
-      assert WoundRoll.probabilty_to_wound_n_times(4, 3, 1, 0) == Fraction.new(1, 3)
-      # two dice
-      assert WoundRoll.probabilty_to_wound_n_times(4, 3, 2, 2) == Fraction.new(4, 9)
-    end
-
-    test "strenght 8 and resistance 4" do
-      assert WoundRoll.probabilty_to_wound_n_times(8, 4, 1, 1) == Fraction.new(5, 6)
-      assert WoundRoll.probabilty_to_wound_n_times(8, 4, 1, 0) == Fraction.new(1, 6)
-      # two dice
-      assert WoundRoll.probabilty_to_wound_n_times(8, 4, 2, 2) == Fraction.new(25, 36)
-      # three dice
-      assert WoundRoll.probabilty_to_wound_n_times(8, 4, 3, 2) == Fraction.new(25, 72)
-    end
-
-  end
-
   describe "sub_histogram_of_bucket" do
 
     test "case 1" do

@@ -1,6 +1,6 @@
 defmodule StatHammer.Phases.Reroll do
   alias StatHammer.Math.Fraction
-  alias StatHammer.Math.Combinations
+  alias StatHammer.Math.Probability
   alias StatHammer.Structs.Simulation
   alias StatHammer.Structs.SecondChance
   alias StatHammer.Structs.Bucket
@@ -8,39 +8,8 @@ defmodule StatHammer.Phases.Reroll do
   alias StatHammer.Structs.SimulationResult
   alias StatHammer.Phases.HitRoll
 
-  defp probabiliy_to_roll_one_given_a_miss(skill) do
+  def probabiliy_to_roll_one_given_a_miss(skill) do
     Fraction.new(1, skill - 1)
-  end
-
-  @doc """
-  Calcutate the probability to roll `number_of_ones` ones rolling `number_of_fails` dice.
-  Note that dice in this context are all misses, so the probability to get a `one` depends on skill.
-  """
-  def probabiliy_to_roll_one_n_times(
-    _skill, number_of_fails, number_of_ones
-  ) when number_of_fails < number_of_ones do
-    raise ArgumentError, message: "number_of_fails >= number_of_ones"
-  end
-  def probabiliy_to_roll_one_n_times(
-    skill, number_of_fails, number_of_ones
-  ) when number_of_fails == number_of_ones do
-    Fraction.pow(probabiliy_to_roll_one_given_a_miss(skill), number_of_fails)
-  end
-  def probabiliy_to_roll_one_n_times(skill, number_of_fails, 0) do
-    Fraction.pow(
-      Fraction.subtraction(Fraction.new(1), probabiliy_to_roll_one_given_a_miss(skill)),
-      number_of_fails
-    )
-  end
-  def probabiliy_to_roll_one_n_times(skill, number_of_fails, number_of_ones) do
-    probability_to_roll_one = probabiliy_to_roll_one_given_a_miss(skill)
-    ones = Fraction.pow(probability_to_roll_one, number_of_ones)
-    non_ones = Fraction.pow(Fraction.subtraction(Fraction.new(1), probability_to_roll_one), number_of_fails - number_of_ones)
-    single_possible_world = Fraction.multiply(ones, non_ones)
-    Fraction.multiply(
-      single_possible_world,
-      Combinations.of(number_of_fails, number_of_ones)
-    )
   end
 
   @spec second_chances(non_neg_integer(), non_neg_integer(), :reroll_all | :reroll_ones | :reroll_none) :: list(SecondChance.t())
@@ -57,13 +26,19 @@ defmodule StatHammer.Phases.Reroll do
     [%SecondChance{number_of_dice: number_of_fails, probability: Fraction.new(1)}]
   end
   def second_chances(skill, number_of_fails, :reroll_ones) do
+    probability_to_roll_one = probabiliy_to_roll_one_given_a_miss(skill)
     # note: contains also 0 even if not necessary, this is useful for test because the sum of this list must be 1
     second_chances = Enum.map(
       0..number_of_fails, # see above
-      fn number_of_ones -> %SecondChance{
-        number_of_dice: number_of_ones,
-        probability: probabiliy_to_roll_one_n_times(skill, number_of_fails, number_of_ones)
-      } end
+      fn number_of_ones ->
+        %SecondChance{
+          number_of_dice: number_of_ones,
+          probability:
+            Probability.probabilty_to_success_n_times(
+              probability_to_roll_one, number_of_fails, number_of_ones
+            )
+        }
+      end
     )
     second_chances
   end
@@ -127,25 +102,24 @@ defmodule StatHammer.Phases.Reroll do
     )
   end
 
-  def append_subtracion_modifier([], _bucket) do
+  def append_subtraction_modifier([], _bucket) do
     []
   end
-  def append_subtracion_modifier(add_modifiers, bucket) do
+  def append_subtraction_modifier(add_modifiers, bucket) do
     cumulative_probability_of_add_modifiers =
       Enum.reduce(
         add_modifiers,
         Fraction.new(0),
         fn bm, acc -> Fraction.add(bm.probability, acc) end
       )
-
-    # append subtraction modifier for the source bucket
-    [
+    subtraction_modifier =
       %BucketModifier{
         type: :subtraction,
         bucket_value: bucket.value,
         probability: cumulative_probability_of_add_modifiers
-      } | add_modifiers
-    ]
+      }
+    # append subtraction modifier for the source bucket
+    [subtraction_modifier | add_modifiers]
   end
 
   def modifiers_of_bucket(
@@ -159,7 +133,7 @@ defmodule StatHammer.Phases.Reroll do
 
     second_chances(skill, number_of_fails, reroll_type)
     |> chances_to_modifiers(skill, bucket)
-    |> append_subtracion_modifier(bucket)
+    |> append_subtraction_modifier(bucket)
     |> List.flatten()
   end
 
@@ -173,8 +147,8 @@ defmodule StatHammer.Phases.Reroll do
       |> List.flatten()
 
     meta = Map.put(
-      simulation.meta, :hit_reroll_modifiers,
-      modifiers
+      simulation.meta,
+      :hit_reroll_modifiers, modifiers
     )
     %Simulation{simulation | meta: meta}
   end
