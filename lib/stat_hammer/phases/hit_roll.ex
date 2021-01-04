@@ -31,30 +31,30 @@ defmodule StatHammer.Phases.HitRoll do
   def histogram(skill, number_of_dice, scenario_probability) do
     Enum.map(
       0..number_of_dice,
-      fn x ->
+      fn number_of_successes ->
         %Bucket{
-          value: x,
+          value: number_of_successes,
           probability:
             Probability.probabilty_to_success_n_times(
-              probability_to_hit(skill), number_of_dice, x, scenario_probability
+              probability_to_hit(skill), number_of_dice, number_of_successes, scenario_probability
             )
         }
       end
     )
   end
 
-  @spec apply(Simulation.t()) :: Simulation.t()
-  def apply(simulation = %Simulation{}) do
-    calculated_histogram =
+  @spec simulate(Simulation.t()) :: Simulation.t()
+  def simulate(simulation = %Simulation{}) do
+    hit_histogram =
       histogram(simulation.attack.skill, simulation.attack.number_of_dice)
     result =
       %SimulationResult{
-        histogram: calculated_histogram,
+        histogram: hit_histogram,
         previous_phase: :hit_phase
       }
     meta = Map.put(
       simulation.meta,
-      :hit_phase_histogram, calculated_histogram
+      :hit_phase_histogram, hit_histogram
     )
     %Simulation{simulation | result: result, meta: meta}
   end

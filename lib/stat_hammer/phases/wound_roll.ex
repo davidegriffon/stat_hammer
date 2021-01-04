@@ -22,7 +22,7 @@ defmodule StatHammer.Phases.WoundRoll do
     Fraction.new(2, 6)
   end
 
-  def sub_histogram_of_bucket(bucket = %Bucket{}, strenght, resistance) do
+  def child_histogram_of_bucket(bucket = %Bucket{}, strenght, resistance) do
     probability = probability_to_wound(strenght, resistance)
     Enum.map(
       0..bucket.value,
@@ -41,9 +41,7 @@ defmodule StatHammer.Phases.WoundRoll do
   @spec merge(list(Bucket.t())) :: list(Bucket.t())
   def merge(histogram) do
     histogram
-    |> Enum.group_by(
-      fn bucket -> bucket.value end
-    )
+    |> Enum.group_by(fn bucket -> bucket.value end)
     |> Map.values()
     |> Enum.map(
       fn bucket_list ->
@@ -66,15 +64,15 @@ defmodule StatHammer.Phases.WoundRoll do
     Enum.map(
       hit_histogram,
       fn bucket ->
-        sub_histogram_of_bucket(bucket, strenght, resistance)
+        child_histogram_of_bucket(bucket, strenght, resistance)
       end
     )
     |> List.flatten()
     |> merge()
   end
 
-  @spec apply(Simulation.t()) :: Simulation.t()
-  def apply(simulation = %Simulation{}) do
+  @spec simulate(Simulation.t()) :: Simulation.t()
+  def simulate(simulation = %Simulation{}) do
     updated_histogram =
       histogram(
         simulation.result.histogram,

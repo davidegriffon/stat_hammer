@@ -202,10 +202,9 @@ defmodule ReRollTest do
       }
       simulation =
         App.create_simulation(attack, %Defense{})
-        |> HitRoll.apply()
+        |> HitRoll.simulate()
 
-      simulation = Reroll.modifiers_of_simulation(simulation)
-      calculated_modifiers = simulation.meta.hit_reroll_modifiers
+      calculated_modifiers = Reroll.modifiers_of_simulation(simulation)
 
       bucket_0_probability = Fraction.new(1, 27)
       bucket_1_probability = Fraction.new(6, 27)
@@ -399,11 +398,11 @@ defmodule ReRollTest do
       }
       simulation =
         App.create_simulation(attack, defense)
-        |> HitRoll.apply()
-        |> Reroll.apply()
+        |> HitRoll.simulate()
+        |> Reroll.simulate()
       #IO.inspect(simulation.result)
 
-      simulation = WoundRoll.apply(simulation)
+      simulation = WoundRoll.simulate(simulation)
       #IO.inspect(simulation.result)
 
       sum =

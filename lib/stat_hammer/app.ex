@@ -23,12 +23,12 @@ defmodule StatHammer.App do
 
   def hit_roll(simulation = %Simulation{}) do
     simulation
-    |> HitRoll.apply()
+    |> HitRoll.simulate()
   end
 
   def reroll(simulation = %Simulation{}, :hit_phase) do
     simulation
-    |> Reroll.apply()
+    |> Reroll.simulate()
   end
   def reroll(simulation = %Simulation{}, :wound_phase) do
     simulation

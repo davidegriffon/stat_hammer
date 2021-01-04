@@ -17,7 +17,7 @@ defmodule WoundRollTest do
 
   end
 
-  describe "sub_histogram_of_bucket" do
+  describe "child_histogram_of_bucket" do
 
     test "case 1" do
       parent_bucket_probability = Fraction.new(1, 2)
@@ -25,7 +25,7 @@ defmodule WoundRollTest do
         value: 2,
         probability: parent_bucket_probability,
       }
-      calculated_result = WoundRoll.sub_histogram_of_bucket(parent_bucket, 4, 4)
+      calculated_result = WoundRoll.child_histogram_of_bucket(parent_bucket, 4, 4)
       expected_result = [
         %Bucket{
           probability: %Fraction{denominator: 8, numerator: 1},
