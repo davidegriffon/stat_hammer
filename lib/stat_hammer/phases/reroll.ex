@@ -1,6 +1,7 @@
 defmodule StatHammer.Phases.Reroll do
   alias StatHammer.Math.Fraction
   alias StatHammer.Math.Probability
+  alias StatHammer.Math.Histogram
   alias StatHammer.Structs.Simulation
   alias StatHammer.Structs.SecondChance
   alias StatHammer.Structs.Bucket
@@ -55,8 +56,8 @@ defmodule StatHammer.Phases.Reroll do
     histogram =
       case phase do
         :hit_phase ->
-          HitRoll.histogram(
-            skill,
+          Histogram.generate(
+            HitRoll.probability_to_hit(skill),
             second_chance.number_of_dice,
             second_chance.probability
           )

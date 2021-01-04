@@ -1,7 +1,6 @@
 defmodule StatHammer.Phases.WoundRoll do
   alias StatHammer.Math.Fraction
-  alias StatHammer.Math.Probability
-  alias StatHammer.Structs.Bucket
+  alias StatHammer.Math.Histogram
   alias StatHammer.Structs.Simulation
   alias StatHammer.Structs.SimulationResult
 
@@ -22,53 +21,20 @@ defmodule StatHammer.Phases.WoundRoll do
     Fraction.new(2, 6)
   end
 
-  def child_histogram_of_bucket(bucket = %Bucket{}, strenght, resistance) do
-    probability = probability_to_wound(strenght, resistance)
-    Enum.map(
-      0..bucket.value,
-      fn number_of_successes ->
-        %Bucket{
-          value: number_of_successes,
-          probability:
-            Probability.probabilty_to_success_n_times(
-              probability, bucket.value, number_of_successes, bucket.probability
-            )
-        }
-      end
-    )
-  end
-
-  @spec merge(list(Bucket.t())) :: list(Bucket.t())
-  def merge(histogram) do
-    histogram
-    |> Enum.group_by(fn bucket -> bucket.value end)
-    |> Map.values()
-    |> Enum.map(
-      fn bucket_list ->
-        Enum.reduce(
-          bucket_list,
-          fn partial_bucket, bucket ->
-            %Bucket{
-              value: bucket.value,
-              probability: Fraction.add(partial_bucket.probability, bucket.probability)
-            }
-          end
-        )
-      end
-    )
-    |> Enum.sort_by(&(&1.value))
-  end
-
   def histogram(hit_histogram, strenght, resistance) do
-    # for each bucket (from hit phase) calculate sub-histograms
     Enum.map(
       hit_histogram,
       fn bucket ->
-        child_histogram_of_bucket(bucket, strenght, resistance)
+        # for each bucket (from hit phase) calculate sub-histograms
+        Histogram.generate(
+          probability_to_wound(strenght, resistance),
+          bucket.value,
+          bucket.probability
+        )
       end
     )
     |> List.flatten()
-    |> merge()
+    |> Histogram.merge()
   end
 
   @spec simulate(Simulation.t()) :: Simulation.t()
