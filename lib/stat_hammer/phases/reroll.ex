@@ -8,28 +8,30 @@ defmodule StatHammer.Phases.Reroll do
   alias StatHammer.Structs.BucketModifier
   alias StatHammer.Structs.SimulationResult
   alias StatHammer.Phases.HitRoll
+  alias StatHammer.Phases.WoundRoll
 
-  def probabiliy_to_roll_one_given_a_miss(skill) do
+  def probability_to_roll_one_given_a_miss(skill) do
     Fraction.new(1, skill - 1)
   end
 
   @spec second_chances(
-    non_neg_integer(), non_neg_integer(), :reroll_all | :reroll_ones | :reroll_none
+    Fraction.t(), non_neg_integer(), :reroll_all | :reroll_ones | :reroll_none
   ) :: list(SecondChance.t())
-  def second_chances(_skill, _number_of_fails, :reroll_none) do
+  def second_chances(_probability_to_roll_one, _number_of_fails, :reroll_none) do
     []
   end
-  def second_chances(_skill, 0, _type) do
+  def second_chances(_probability_to_roll_one, 0, _type) do
     []
   end
-  def second_chances(2, number_of_fails, :reroll_ones) do
+  def second_chances(
+    %Fraction{numerator: 1, denominator: 1}, number_of_fails, :reroll_ones
+  ) do
     [%SecondChance{number_of_dice: number_of_fails, probability: Fraction.new(1)}]
   end
-  def second_chances(_skill, number_of_fails, :reroll_all) do
+  def second_chances(_probability_to_roll_one, number_of_fails, :reroll_all) do
     [%SecondChance{number_of_dice: number_of_fails, probability: Fraction.new(1)}]
   end
-  def second_chances(skill, number_of_fails, :reroll_ones) do
-    probability_to_roll_one = probabiliy_to_roll_one_given_a_miss(skill)
+  def second_chances(probability_to_roll_one, number_of_fails, :reroll_ones) do
     # note: this list contains also 0 `number_of_fails` even if not necessary
     #       this is useful for test because the sum of probabilities must be 1
     second_chances = Enum.map(
@@ -49,23 +51,14 @@ defmodule StatHammer.Phases.Reroll do
 
   def modifiers_of_second_chance(
     second_chance = %SecondChance{},
-    skill,
-    original_bucket,
-    phase
+    event_probability,
+    original_bucket
   ) do
-    histogram =
-      case phase do
-        :hit_phase ->
-          Histogram.generate(
-            HitRoll.probability_to_hit(skill),
-            second_chance.number_of_dice,
-            second_chance.probability
-          )
-        :wound_phase ->
-          nil
-      end
-
-    histogram
+    Histogram.generate(
+      event_probability,
+      second_chance.number_of_dice,
+      second_chance.probability
+    )
     |> Enum.filter(
       # we are not interested in bucket of 0 dice: it means no reroll
       fn bucket -> bucket.value > 0 end
@@ -83,10 +76,10 @@ defmodule StatHammer.Phases.Reroll do
   end
 
   @spec chances_to_modifiers(
-    list(SecondChance.t()), non_neg_integer(), Bucket.t()
+    list(SecondChance.t()), Fraction.t(), Bucket.t()
   ) :: list(BucketModifier.t())
   def chances_to_modifiers(
-    chances, skill, original_bucket
+    chances, event_probability, original_bucket
   ) do
     # get rid of SecondChance with number_of_dice equals to 0
     Enum.filter(
@@ -97,7 +90,7 @@ defmodule StatHammer.Phases.Reroll do
     |> Enum.map(
       fn second_chance ->
         modifiers_of_second_chance(
-          second_chance, skill, original_bucket, :hit_phase
+          second_chance, event_probability, original_bucket
         )
       end
     )
@@ -134,24 +127,51 @@ defmodule StatHammer.Phases.Reroll do
 
   def modifiers_of_bucket(
     bucket = %Bucket{},
-    simulation = %Simulation{}
+    simulation = %Simulation{},
+    :hit_phase
   ) do
-    skill = simulation.attack.skill
     number_of_dice = simulation.attack.number_of_dice
-    reroll_type = simulation.attack.hit_modifiers.reroll
     number_of_fails = number_of_dice - bucket.value
+    reroll_type = simulation.attack.hit_modifiers.reroll
+    skill = simulation.attack.skill
+    probability_to_roll_one = probability_to_roll_one_given_a_miss(skill)
+    event_probability = HitRoll.probability_to_hit(skill)
 
-    second_chances(skill, number_of_fails, reroll_type)
-    |> chances_to_modifiers(skill, bucket)
+    second_chances(probability_to_roll_one, number_of_fails, reroll_type)
+    |> chances_to_modifiers(event_probability, bucket)
     |> append_subtraction_modifier(bucket)
     |> List.flatten()
   end
 
-  @spec modifiers_of_simulation(Simulation.t()) :: [BucketModifier.t()]
-  def modifiers_of_simulation(simulation = %Simulation{}) do
+  def modifiers_of_bucket(
+    bucket = %Bucket{},
+    simulation = %Simulation{},
+    :wound_phase
+  ) do
+    number_of_dice = length(simulation.result.histogram) - 1
+    number_of_fails = number_of_dice - bucket.value
+    reroll_type = simulation.attack.wound_modifiers.reroll
+    event_probability =
+      WoundRoll.probability_to_wound(
+        simulation.attack.strenght,
+        simulation.defense.resistance
+      )
+    probability_to_roll_one =
+      WoundRoll.probability_to_roll_one_given_a_miss(
+        simulation.attack.strenght,
+        simulation.defense.resistance
+      )
+    second_chances(probability_to_roll_one, number_of_fails, reroll_type)
+    |> chances_to_modifiers(event_probability, bucket)
+    |> append_subtraction_modifier(bucket)
+    |> List.flatten()
+  end
+
+  @spec modifiers_of_simulation(Simulation.t(), :hit_phase | :wound_phase) :: [BucketModifier.t()]
+  def modifiers_of_simulation(simulation = %Simulation{}, phase) do
     Enum.map(
       simulation.result.histogram,  # list of bucket
-      fn bucket -> modifiers_of_bucket(bucket, simulation) end
+      fn bucket -> modifiers_of_bucket(bucket, simulation, phase) end
     )
     |> List.flatten()
   end
@@ -189,18 +209,24 @@ defmodule StatHammer.Phases.Reroll do
     )
   end
 
-  def apply_modifiers_to_simulation(simulation = %Simulation{}) do
-    modifiers = modifiers_of_simulation(simulation)
+  def apply_modifiers_to_simulation(simulation = %Simulation{}, phase) do
+    modifiers = modifiers_of_simulation(simulation, phase)
     histogram =
       Enum.map(
         simulation.result.histogram,
         fn bucket -> apply_modifiers_to_bucket(bucket, modifiers) end
       )
+
     result =
       %SimulationResult{
         histogram: histogram,
-        previous_phase: :hit_reroll_phase,
+        previous_phase:
+          case phase do
+            :hit_phase -> :hit_reroll_phase
+            :wound_phase -> :wound_reroll_phase
+          end
       }
+
     meta = Map.put(
       simulation.meta,
       :hit_reroll_modifiers, modifiers
@@ -212,7 +238,15 @@ defmodule StatHammer.Phases.Reroll do
     if simulation.attack.hit_modifiers.reroll == :reroll_none do
       simulation
     else
-      simulation |> apply_modifiers_to_simulation()
+      simulation |> apply_modifiers_to_simulation(:hit_phase)
+    end
+  end
+
+  def simulate_wound_reroll(simulation = %Simulation{}) do
+    if simulation.attack.wound_modifiers.reroll == :reroll_none do
+      simulation
+    else
+      simulation |> apply_modifiers_to_simulation(:wound_phase)
     end
   end
 
@@ -221,6 +255,7 @@ defmodule StatHammer.Phases.Reroll do
     previous_phase = simulation.result.previous_phase
     case previous_phase do
       :hit_phase -> simulate_hit_reroll(simulation)
+      :wound_phase -> simulate_wound_reroll(simulation)
     end
   end
 

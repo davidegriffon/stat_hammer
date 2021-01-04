@@ -21,6 +21,15 @@ defmodule StatHammer.Phases.WoundRoll do
     Fraction.new(2, 6)
   end
 
+  def probability_to_roll_one_given_a_miss(strenght, resistance) do
+    not_to_wound =
+      Fraction.subtraction(
+        Fraction.new(1),
+        probability_to_wound(strenght, resistance)
+      )
+    Fraction.division(Fraction.new(1, 6), not_to_wound)
+  end
+
   def histogram(hit_histogram, strenght, resistance) do
     Enum.map(
       hit_histogram,

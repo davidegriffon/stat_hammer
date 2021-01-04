@@ -111,7 +111,7 @@ defmodule ProbabilityTest do
   describe "probabiliy_to_roll_one_n_times" do
 
     test "skill 2+" do
-      probability = Reroll.probabiliy_to_roll_one_given_a_miss(2)
+      probability = Reroll.probability_to_roll_one_given_a_miss(2)
       assert Probability.probabilty_to_success_n_times(probability, 1, 1) == Fraction.new(1)
       assert Probability.probabilty_to_success_n_times(probability, 2, 2) == Fraction.new(1)
       assert Probability.probabilty_to_success_n_times(probability, 10, 10) == Fraction.new(1)
@@ -122,7 +122,7 @@ defmodule ProbabilityTest do
     end
 
     test "skill 3+" do
-      probability = Reroll.probabiliy_to_roll_one_given_a_miss(3)
+      probability = Reroll.probability_to_roll_one_given_a_miss(3)
       assert Probability.probabilty_to_success_n_times(probability, 1, 0) == Fraction.new(1, 2)
       assert Probability.probabilty_to_success_n_times(probability, 1, 1) == Fraction.new(1, 2)
       assert Probability.probabilty_to_success_n_times(probability, 2, 2) == Fraction.new(1, 4)
@@ -130,7 +130,7 @@ defmodule ProbabilityTest do
     end
 
     test "skill 4+" do
-      probability = Reroll.probabiliy_to_roll_one_given_a_miss(4)
+      probability = Reroll.probability_to_roll_one_given_a_miss(4)
       assert Probability.probabilty_to_success_n_times(probability, 1, 0) == Fraction.new(2, 3)
       assert Probability.probabilty_to_success_n_times(probability, 1, 1) == Fraction.new(1, 3)
       assert Probability.probabilty_to_success_n_times(probability, 2, 2) == Fraction.new(1, 9)
@@ -138,7 +138,7 @@ defmodule ProbabilityTest do
     end
 
     test "skill 5+" do
-      probability = Reroll.probabiliy_to_roll_one_given_a_miss(5)
+      probability = Reroll.probability_to_roll_one_given_a_miss(5)
       assert Probability.probabilty_to_success_n_times(probability, 1, 0) == Fraction.new(3, 4)
       assert Probability.probabilty_to_success_n_times(probability, 1, 1) == Fraction.new(1, 4)
       assert Probability.probabilty_to_success_n_times(probability, 2, 2) == Fraction.new(1, 16)
@@ -146,7 +146,7 @@ defmodule ProbabilityTest do
     end
 
     test "skill 6+" do
-      probability = Reroll.probabiliy_to_roll_one_given_a_miss(6)
+      probability = Reroll.probability_to_roll_one_given_a_miss(6)
       assert Probability.probabilty_to_success_n_times(probability, 1, 0) == Fraction.new(4, 5)
       assert Probability.probabilty_to_success_n_times(probability, 1, 1) == Fraction.new(1, 5)
       assert Probability.probabilty_to_success_n_times(probability, 2, 2) == Fraction.new(1, 25)
