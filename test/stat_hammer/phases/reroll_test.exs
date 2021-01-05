@@ -3,128 +3,82 @@ defmodule ReRollTest do
   alias StatHammer.Math.Fraction
   alias StatHammer.Phases.HitRoll
   alias StatHammer.Phases.Reroll
-  alias StatHammer.Phases.WoundRoll
   alias StatHammer.Structs.Defense
   alias StatHammer.Structs.Attack
   alias StatHammer.Structs.Attack.HitModifiers
+  alias StatHammer.Structs.Attack.WoundModifiers
   alias StatHammer.Structs.Bucket
   alias StatHammer.Structs.BucketModifier
   alias StatHammer.Structs.SecondChance
   alias StatHammer.App
 
-  defp check_sum_of_probabilities_of_second_chances(second_chances) do
-    sum_of_probabilities =
-      Enum.reduce(
-        second_chances,
-        Fraction.new(0),
-        fn chance, acc -> Fraction.add(chance.probability, acc) end
-      )
-    assert sum_of_probabilities == Fraction.new(1)
-  end
-
-  describe "second_chances" do
-    # note that the most important logic of this function is in the
-    # `probabiliy_to_roll_one_n_times` funciont, that is already tested above
-
-    test "the sum of probabilities is always 1" do
-      combinations = for skill <- 2..6, number_of_fails <- 1..10 do {skill, number_of_fails} end
-      Enum.each(
-        combinations,
-        fn {skill, number_of_fails} ->
-          Reroll.second_chances(
-            Reroll.probability_to_roll_one_given_a_miss(skill), number_of_fails, :reroll_ones
-          )
-          |> check_sum_of_probabilities_of_second_chances()
-        end
-      )
-    end
-
-    test "reroll_ones type" do
-      probabiliy_bs_3 = Reroll.probability_to_roll_one_given_a_miss(3)
-      probabiliy_bs_4 = Reroll.probability_to_roll_one_given_a_miss(4)
-      assert Reroll.second_chances(probabiliy_bs_3, 1, :reroll_ones) ==
-        [
-          %SecondChance{number_of_dice: 0, probability: Fraction.new(1, 2)},
-          %SecondChance{number_of_dice: 1, probability: Fraction.new(1, 2)},
-        ]
-      assert Reroll.second_chances(probabiliy_bs_3, 2, :reroll_ones) ==
-        [
-          %SecondChance{number_of_dice: 0, probability: Fraction.new(1, 4)},
-          %SecondChance{number_of_dice: 1, probability: Fraction.new(1, 2)},
-          %SecondChance{number_of_dice: 2, probability: Fraction.new(1, 4)},
-        ]
-      assert Reroll.second_chances(probabiliy_bs_3, 3, :reroll_ones) ==
-        [
-          %SecondChance{number_of_dice: 0, probability: Fraction.new(1, 8)},
-          %SecondChance{number_of_dice: 1, probability: Fraction.new(3, 8)},
-          %SecondChance{number_of_dice: 2, probability: Fraction.new(3, 8)},
-          %SecondChance{number_of_dice: 3, probability: Fraction.new(1, 8)},
-        ]
-      assert Reroll.second_chances(probabiliy_bs_4, 2, :reroll_ones) ==
-        [
-          %SecondChance{number_of_dice: 0, probability: Fraction.new(4, 9)},
-          %SecondChance{number_of_dice: 1, probability: Fraction.new(4, 9)},
-          %SecondChance{number_of_dice: 2, probability: Fraction.new(1, 9)},
-        ]
-    end
-
-    test "reroll_all type" do
-      assert Reroll.second_chances(Reroll.probability_to_roll_one_given_a_miss(3), 3, :reroll_all) == [%SecondChance{number_of_dice: 3, probability: Fraction.new(1)}]
-      assert Reroll.second_chances(Reroll.probability_to_roll_one_given_a_miss(4), 6, :reroll_all) == [%SecondChance{number_of_dice: 6, probability: Fraction.new(1)}]
-      assert Reroll.second_chances(Reroll.probability_to_roll_one_given_a_miss(5), 9, :reroll_all) == [%SecondChance{number_of_dice: 9, probability: Fraction.new(1)}]
-      assert Reroll.second_chances(Reroll.probability_to_roll_one_given_a_miss(6), 2, :reroll_all) == [%SecondChance{number_of_dice: 2, probability: Fraction.new(1)}]
-    end
-
-  end
-
   describe "modifiers_of_second_chance" do
 
-    test "one die" do
+    @tag :reroll_phase
+    test "one die to reroll" do
+      original_bucket = %Bucket{value: 2, probability: Fraction.new(1)}
       hit_probability_with_bs_3 = HitRoll.probability_to_hit(3)
       result = Reroll.modifiers_of_second_chance(
-        %SecondChance{number_of_dice: 1, probability: Fraction.new(1, 2)},
-        hit_probability_with_bs_3,
-        %Bucket{value: 2, probability: Fraction.new(12, 27)}
-      )
-      expected = [%BucketModifier{bucket_value: 3, probability: Fraction.new(1, 3), type: :add}]
-      assert result == expected
-    end
-
-    test "two dice" do
-      hit_probability_with_bs_3 = HitRoll.probability_to_hit(3)
-      result = Reroll.modifiers_of_second_chance(
-        %SecondChance{number_of_dice: 2, probability: Fraction.new(1, 4)},
-        hit_probability_with_bs_3,
-        %Bucket{value: 1, probability: Fraction.new(2, 9)}
+        %SecondChance{
+          number_of_dice: 1,
+          probability: Fraction.new(1, 2),
+          original_bucket: original_bucket
+        },
+        hit_probability_with_bs_3
       )
       expected = [
-        %BucketModifier{bucket_value: 2, probability: Fraction.new(1, 9), type: :add},
-        %BucketModifier{bucket_value: 3, probability: Fraction.new(1, 9), type: :add},
+        %BucketModifier{
+          bucket_value: 3,
+          probability: Fraction.new(1, 3),
+          type: :add,
+          original_bucket: original_bucket
+        }
       ]
       assert result == expected
     end
 
-    test "three dice" do
+    @tag :reroll_phase
+    test "two dice to reroll" do
+      original_bucket = %Bucket{value: 1, probability: Fraction.new(2, 9)}
       hit_probability_with_bs_3 = HitRoll.probability_to_hit(3)
       result = Reroll.modifiers_of_second_chance(
-        %SecondChance{number_of_dice: 3, probability: Fraction.new(1, 8)},
-        hit_probability_with_bs_3,
-        %Bucket{value: 0, probability: Fraction.new(1, 27)}
+        %SecondChance{
+          number_of_dice: 2,
+          probability: Fraction.new(1, 4),
+          original_bucket: original_bucket,
+        },
+        hit_probability_with_bs_3
       )
       expected = [
-        %BucketModifier{bucket_value: 1, probability: Fraction.new(1, 36), type: :add},
-        %BucketModifier{bucket_value: 2, probability: Fraction.new(1, 18), type: :add},
-        %BucketModifier{bucket_value: 3, probability: Fraction.new(1, 27), type: :add},
+        %BucketModifier{bucket_value: 2, probability: Fraction.new(1, 9), type: :add, original_bucket: original_bucket},
+        %BucketModifier{bucket_value: 3, probability: Fraction.new(1, 9), type: :add, original_bucket: original_bucket},
       ]
       assert result == expected
     end
 
-    test "many dice" do
+    @tag :reroll_phase
+    test "three dice to reroll" do
+      original_bucket = %Bucket{value: 0, probability: Fraction.new(1, 27)}
       hit_probability_with_bs_3 = HitRoll.probability_to_hit(3)
       result = Reroll.modifiers_of_second_chance(
-        %SecondChance{number_of_dice: 50, probability: Fraction.new(1)},
-        hit_probability_with_bs_3,
-        %Bucket{value: 0, probability: Fraction.new(1)}
+        %SecondChance{number_of_dice: 3, probability: Fraction.new(1, 8), original_bucket: original_bucket},
+        hit_probability_with_bs_3
+      )
+      expected = [
+        %BucketModifier{bucket_value: 1, probability: Fraction.new(1, 36), type: :add, original_bucket: original_bucket},
+        %BucketModifier{bucket_value: 2, probability: Fraction.new(1, 18), type: :add, original_bucket: original_bucket},
+        %BucketModifier{bucket_value: 3, probability: Fraction.new(1, 27), type: :add, original_bucket: original_bucket},
+      ]
+      assert result == expected
+    end
+
+    @tag :reroll_phase
+    test "many dice to reroll" do
+      original_bucket = %Bucket{value: 0, probability: Fraction.new(1)}
+      hit_probability_with_bs_3 = HitRoll.probability_to_hit(3)
+      result = Reroll.modifiers_of_second_chance(
+        %SecondChance{number_of_dice: 50, probability: Fraction.new(1), original_bucket: original_bucket},
+        hit_probability_with_bs_3
       )
       assert Fraction.pow(Fraction.new(2, 3), 50) == Enum.at(result, -1).probability
     end
@@ -133,6 +87,7 @@ defmodule ReRollTest do
 
   describe "modifiers_of_bucket" do
 
+    @tag :reroll_phase
     test "Hit phase" do
       attack = %Attack{
         number_of_dice: 3,
@@ -142,14 +97,19 @@ defmodule ReRollTest do
         hit_modifiers: %HitModifiers{
           reroll: :reroll_ones,
           on_six: :on_six_none,
-        }
+        },
+        wound_modifiers: %WoundModifiers{
+          reroll: :reroll_ones,
+          on_six: :on_six_none,
+        },
       }
       simulation = App.create_simulation(attack, %Defense{})
-      calculated_modifiers = Reroll.modifiers_of_bucket(
-        %Bucket{value: 0, probability: Fraction.new(1)},
-        simulation,
-        :hit_phase
-      )
+      calculated_modifiers =
+        Reroll.modifiers_of_bucket(
+          %Bucket{value: 0, probability: Fraction.new(1)},
+          simulation,
+          :hit_phase
+        )
       expected_modifiers = [
         %BucketModifier{
           bucket_value: 0,
@@ -194,7 +154,7 @@ defmodule ReRollTest do
 
   describe "modifiers_of_simulation" do
 
-    test "case 1" do
+    test "Hit Phase" do
       attack = %Attack{
         number_of_dice: 3,
         skill: 3,
@@ -203,13 +163,18 @@ defmodule ReRollTest do
         hit_modifiers: %HitModifiers{
           reroll: :reroll_ones,
           on_six: :on_six_none,
-        }
+        },
+        wound_modifiers: %WoundModifiers{
+          reroll: :reroll_none,
+          on_six: :on_six_none,
+        },
       }
       simulation =
         App.create_simulation(attack, %Defense{})
         |> HitRoll.simulate()
+        |> Reroll.simulate()
 
-      calculated_modifiers = Reroll.modifiers_of_simulation(simulation, :hit_phase)
+      calculated_modifiers = simulation.meta.hit_reroll_modifiers
 
       bucket_0_probability = Fraction.new(1, 27)
       bucket_1_probability = Fraction.new(6, 27)
@@ -302,142 +267,6 @@ defmodule ReRollTest do
       assert sum == Fraction.new(0)
     end
 
-  end
-
-  describe "apply_modifier_to_bucket" do
-
-    test "Same bucket value" do
-      calculated =
-        Reroll.apply_modifier_to_bucket(
-          %Bucket{
-            value: 2,
-            probability: %Fraction{denominator: 3, numerator: 1},
-          },
-          %BucketModifier{
-            bucket_value: 2,
-            probability: %Fraction{denominator: 9, numerator: 1},
-            type: :add
-          }
-        )
-      expected_result =
-        %Bucket{
-          value: 2,
-          probability: %Fraction{denominator: 9, numerator: 4},
-        }
-      assert expected_result == calculated
-    end
-
-    test "Different bucket value" do
-      bucket =
-        %Bucket{
-          value: 2,
-          probability: %Fraction{denominator: 144, numerator: 3},
-        }
-      calculated =
-        Reroll.apply_modifier_to_bucket(
-          bucket,
-          %BucketModifier{
-            bucket_value: 3,
-            probability: %Fraction{denominator: 9, numerator: 1},
-            type: :add
-          }
-        )
-      # bucket does not change
-      assert bucket == calculated
-    end
-
-  end
-
-  describe "apply_modifiers_to_bucket" do
-
-    test "Case 1" do
-      modifiers = [
-        %BucketModifier{
-          bucket_value: 1,
-          probability: Fraction.new(1, 9),
-          type: :add
-        },
-        %BucketModifier{
-          bucket_value: 2,
-          probability: Fraction.new(5, 7),
-          type: :add
-        },
-        %BucketModifier{
-          bucket_value: 1,
-          probability: Fraction.new(6, 9),
-          type: :add
-        }
-      ]
-      calculated =
-        Reroll.apply_modifiers_to_bucket(
-          %Bucket{
-            value: 1,
-            probability: Fraction.new(1, 9),
-          },
-          modifiers
-        )
-      expected_result =
-        %Bucket{
-          value: 1,
-          probability: Fraction.new(8, 9),
-        }
-      assert expected_result == calculated
-    end
-
-  end
-
-  describe "Foo" do
-    test "Bar" do
-      attack = %Attack{
-        number_of_dice: 10,
-        skill: 3,
-        strenght: 4,
-        armor_penetration: 0,
-        hit_modifiers: %HitModifiers{
-          reroll: :reroll_ones,
-          on_six: :on_six_none,
-        }
-      }
-      defense = %Defense{
-        resistance: 3
-      }
-      simulation =
-        App.create_simulation(attack, defense)
-        |> HitRoll.simulate()
-        |> Reroll.simulate()
-      #IO.inspect(simulation.result)
-
-      simulation = WoundRoll.simulate(simulation)
-      #IO.inspect(simulation.result)
-
-      sum =
-        Enum.reduce(
-          simulation.result.histogram,
-          Fraction.new(0),
-          fn bucket, acc ->
-            Fraction.add(acc, bucket.probability)
-          end
-        )
-      #IO.puts("\n\n::>> #{inspect(sum)}")
-
-      cumulated =
-        Enum.with_index(simulation.result.histogram)
-        |> Enum.map(
-          fn {_bucket, index} ->
-            prob =
-              Enum.reduce(
-                Enum.take(simulation.result.histogram, - index - 1),
-                Fraction.new(0),
-                fn bucket, acc ->
-                  Fraction.add(bucket.probability, acc)
-                end
-              )
-            "#{10 - index}: #{(prob.numerator / prob.denominator) * 100} %"
-          end
-        )
-        #IO.puts("\n\ncumulated:")
-        #IO.inspect(cumulated)
-    end
   end
 
 end

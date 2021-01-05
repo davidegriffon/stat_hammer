@@ -32,6 +32,7 @@ defmodule StatHammer.App do
   end
   def reroll(simulation = %Simulation{}, :wound_phase) do
     simulation
+    |> Reroll.simulate()
   end
 
   def apply_six_results(simulation = %Simulation{}, :hit_phase) do

@@ -15,10 +15,17 @@ defmodule StatHammer.Phases.HitRoll do
     Fraction.new(7 - skill, 6)
   end
 
+  def probability_to_roll_one_given_a_miss(skill) do
+    Fraction.new(1, skill - 1)
+  end
+
   @spec simulate(Simulation.t()) :: Simulation.t()
   def simulate(simulation = %Simulation{}) do
     hit_histogram =
-      Histogram.generate(probability_to_hit(simulation.attack.skill), simulation.attack.number_of_dice)
+      Histogram.generate(
+        probability_to_hit(simulation.attack.skill),
+        simulation.attack.number_of_dice
+      )
     result =
       %SimulationResult{
         histogram: hit_histogram,

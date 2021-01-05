@@ -5,6 +5,7 @@ defmodule WoundRollTest do
 
   describe "probability_to_wound" do
 
+    @tag :wound_phase
     test "case 1" do
       assert WoundRoll.probability_to_wound(3, 3) == Fraction.new(1, 2)
       assert WoundRoll.probability_to_wound(4, 4) == Fraction.new(1, 2)

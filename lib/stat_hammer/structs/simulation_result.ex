@@ -1,6 +1,8 @@
 defmodule StatHammer.Structs.SimulationResult do
+  alias StatHammer.Math.Histogram
+
   @type t :: %__MODULE__{
-    histogram: list(Bucket.t()),
+    histogram: Histogram.t(),
     previous_phase: atom(),
   }
 

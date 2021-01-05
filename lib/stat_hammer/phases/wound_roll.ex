@@ -1,4 +1,6 @@
 defmodule StatHammer.Phases.WoundRoll do
+  import Logger
+
   alias StatHammer.Math.Fraction
   alias StatHammer.Math.Histogram
   alias StatHammer.Structs.Simulation
@@ -30,36 +32,51 @@ defmodule StatHammer.Phases.WoundRoll do
     Fraction.division(Fraction.new(1, 6), not_to_wound)
   end
 
-  def histogram(hit_histogram, strenght, resistance) do
-    Enum.map(
-      hit_histogram,
-      fn bucket ->
-        # for each bucket (from hit phase) calculate sub-histograms
-        Histogram.generate(
-          probability_to_wound(strenght, resistance),
-          bucket.value,
-          bucket.probability
-        )
-      end
-    )
-    |> List.flatten()
-    |> Histogram.merge()
+  def wound_sub_histograms(hit_histogram = %Histogram{}, strenght, resistance) do
+    wound_sub_histograms =
+      Enum.map(
+        hit_histogram.buckets,
+        fn bucket ->
+          # for each bucket (from hit phase) calculate sub-histograms
+          sub_histogram = Histogram.generate(
+            probability_to_wound(strenght, resistance),
+            bucket.value,
+            bucket.probability
+          )
+          Logger.debug("sub_histogram of bucket #{bucket.value}")
+          Logger.debug("sub_histogram of bucket #{bucket.value}")
+          #IO.inspect(sub_histogram)
+          Logger.debug("\n")
+          sub_histogram
+        end
+      )
+    wound_sub_histograms
   end
 
-  @spec simulate(Simulation.t()) :: Simulation.t()
   def simulate(simulation = %Simulation{}) do
-    updated_histogram =
-      histogram(
+    sub_histograms =
+      wound_sub_histograms(
         simulation.result.histogram,
         simulation.attack.strenght,
         simulation.defense.resistance
       )
+
+    wound_histogram =
+      sub_histograms
+      |> Histogram.merge()
+
     result =
       %SimulationResult{
-        histogram: updated_histogram,
+        histogram: wound_histogram,
         previous_phase: :wound_phase
       }
-    %Simulation{simulation | result: result}
+
+    meta =
+      simulation.meta
+      |> Map.put(:wound_phase_sub_histograms, sub_histograms)
+      |> Map.put(:wound_phase_histogram, wound_histogram)
+
+    %Simulation{simulation | result: result, meta: meta}
   end
 
 end
