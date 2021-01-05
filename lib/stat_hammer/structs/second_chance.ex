@@ -1,8 +1,6 @@
 defmodule StatHammer.Structs.SecondChance do
-  import Logger
-
   alias StatHammer.Math.Fraction
-  alias StatHammer.Math.Histogram
+  alias StatHammer.Structs.Histogram
   alias StatHammer.Math.Probability
   alias StatHammer.Structs.SecondChance
 

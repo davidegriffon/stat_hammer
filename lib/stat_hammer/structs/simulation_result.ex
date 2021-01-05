@@ -1,5 +1,5 @@
 defmodule StatHammer.Structs.SimulationResult do
-  alias StatHammer.Math.Histogram
+  alias StatHammer.Structs.Histogram
 
   @type t :: %__MODULE__{
     histogram: Histogram.t(),

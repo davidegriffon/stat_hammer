@@ -1,7 +1,7 @@
-defmodule StatHammer.Math.Histogram do
+defmodule StatHammer.Structs.Histogram do
   alias StatHammer.Math.Probability
   alias StatHammer.Math.Fraction
-  alias StatHammer.Math.Histogram
+  alias StatHammer.Structs.Histogram
   alias StatHammer.Structs.Bucket
 
   @type t :: %__MODULE__{

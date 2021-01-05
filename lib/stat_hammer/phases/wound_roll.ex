@@ -2,7 +2,7 @@ defmodule StatHammer.Phases.WoundRoll do
   import Logger
 
   alias StatHammer.Math.Fraction
-  alias StatHammer.Math.Histogram
+  alias StatHammer.Structs.Histogram
   alias StatHammer.Structs.Simulation
   alias StatHammer.Structs.SimulationResult
 

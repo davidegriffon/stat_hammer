@@ -1,6 +1,6 @@
 defmodule StatHammer.Structs.BucketModifier do
   alias StatHammer.Math.Fraction
-  alias StatHammer.Math.Histogram
+  alias StatHammer.Structs.Histogram
   alias StatHammer.Structs.Bucket
   alias StatHammer.Structs.BucketModifier
   alias StatHammer.Structs.SecondChance
@@ -23,12 +23,8 @@ defmodule StatHammer.Structs.BucketModifier do
     list(SecondChance.t()), Fraction.t()
   ) :: list(BucketModifier.t())
   def modifiers_of_second_chances(chances, event_probability) do
-    # get rid of SecondChance with number_of_dice equals to 0
-    Enum.filter(
-      chances,
-      fn second_chance -> second_chance.number_of_dice > 0 end
-    )
     # transform every chance to a list of modifiers
+    chances
     |> Enum.map(
       fn second_chance ->
         modifiers_of_second_chance(

@@ -1,6 +1,6 @@
 defmodule HistogramTest do
   use ExUnit.Case
-  alias StatHammer.Math.Histogram
+  alias StatHammer.Structs.Histogram
   alias StatHammer.Math.Fraction
   alias StatHammer.Structs.Bucket
 

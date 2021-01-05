@@ -1,6 +1,6 @@
 defmodule StatHammer.Phases.HitRoll do
   alias StatHammer.Math.Fraction
-  alias StatHammer.Math.Histogram
+  alias StatHammer.Structs.Histogram
   alias StatHammer.Structs.Simulation
   alias StatHammer.Structs.SimulationResult
 

@@ -1,7 +1,7 @@
 defmodule HitRollTest do
   use ExUnit.Case
   alias StatHammer.Math.Fraction
-  alias StatHammer.Math.Histogram
+  alias StatHammer.Structs.Histogram
   alias StatHammer.Phases.HitRoll
   alias StatHammer.Structs.Bucket
 
